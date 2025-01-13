@@ -5,32 +5,63 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 )
 
-func handleConnection(conn net.Conn) {
+type Server struct {
+	mu    sync.Mutex
+	store map[string]string
+}
+
+func NewServer() *Server {
+	return &Server{
+		store: make(map[string]string),
+	}
+}
+
+func (s *Server) handleConnection(conn net.Conn) {
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
 
 	for {
-		// Read the client input
 		message, err := reader.ReadString('\n')
 		if err != nil {
 			fmt.Println("Client disconnected:", err)
 			return
 		}
 
-		// Trim the input and process commands
+		// Process the command
 		message = strings.TrimSpace(message)
-		fmt.Printf("Received: %s\n", message)
+		parts := strings.SplitN(message, " ", 3)
+		command := strings.ToUpper(parts[0])
 
-		// Handle the "PING" command
-		switch strings.ToUpper(message) {
+		switch command {
 		case "PING":
 			_, _ = conn.Write([]byte("PONG\n"))
 		case "SET":
-			_, _ = conn.Write([]byte("Not Defined!!\n"))
+			if len(parts) < 3 {
+				_, _ = conn.Write([]byte("Error: SET requires a key and value\n"))
+				continue
+			}
+			key, value := parts[1], parts[2]
+			s.mu.Lock()
+			s.store[key] = value
+			s.mu.Unlock()
+			_, _ = conn.Write([]byte("OK\n"))
 		case "GET":
-			_, _ = conn.Write([]byte("Not Defined!!\n"))
+			if len(parts) < 2 {
+				_, _ = conn.Write([]byte("Error: GET requires a key\n"))
+				continue
+			}
+			key := parts[1]
+			s.mu.Lock()
+			value, exists := s.store[key]
+			s.mu.Unlock()
+			if exists {
+				_, _ = conn.Write([]byte(value + "\n"))
+			} else {
+				_, _ = conn.Write([]byte("nil\n"))
+			}
 		default:
 			_, _ = conn.Write([]byte("Unknown Command\n"))
 		}
@@ -38,6 +69,8 @@ func handleConnection(conn net.Conn) {
 }
 
 func main() {
+	server := NewServer()
+
 	listener, err := net.Listen("tcp", ":6379")
 	if err != nil {
 		fmt.Println("Error starting server:", err)
@@ -52,8 +85,6 @@ func main() {
 			fmt.Println("Error accepting connection:", err)
 			continue
 		}
-
-		// Handle each client connection in a separate goroutine
-		go handleConnection(conn)
+		go server.handleConnection(conn)
 	}
 }
