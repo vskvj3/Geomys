@@ -24,9 +24,10 @@ func handleConnection(conn net.Conn) {
 		fmt.Printf("Received: %s\n", message)
 
 		// Handle the "PING" command
-		if strings.ToUpper(message) == "PING" {
+		switch strings.ToUpper(message) {
+		case "PING":
 			_, _ = conn.Write([]byte("PONG\n"))
-		} else {
+		default:
 			_, _ = conn.Write([]byte("Unknown Command\n"))
 		}
 	}
