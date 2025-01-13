@@ -27,6 +27,10 @@ func handleConnection(conn net.Conn) {
 		switch strings.ToUpper(message) {
 		case "PING":
 			_, _ = conn.Write([]byte("PONG\n"))
+		case "SET":
+			_, _ = conn.Write([]byte("Not Defined!!\n"))
+		case "GET":
+			_, _ = conn.Write([]byte("Not Defined!!\n"))
 		default:
 			_, _ = conn.Write([]byte("Unknown Command\n"))
 		}
