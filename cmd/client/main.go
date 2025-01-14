@@ -15,7 +15,7 @@ func main() {
 	}
 	defer conn.Close()
 
-	fmt.Println("Connected to server. Type commands (e.g., PING) and press Enter.")
+	fmt.Println("Connected to server. Type commands (e.g., PING, ECHO) and press Enter.")
 	reader := bufio.NewReader(os.Stdin)
 
 	for {
