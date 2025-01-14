@@ -38,6 +38,13 @@ func (s *Server) handleConnection(conn net.Conn) {
 		switch command {
 		case "PING":
 			_, _ = conn.Write([]byte("PONG\n"))
+		case "ECHO":
+			if len(parts) < 2 {
+				_, _ = conn.Write([]byte("Error: ECHO requires a message\n"))
+				continue
+			}
+			messageToEcho := strings.Join(parts[1:], " ")
+			_, _ = conn.Write([]byte(messageToEcho + "\n"))
 		case "SET":
 			if len(parts) < 3 {
 				_, _ = conn.Write([]byte("Error: SET requires a key and value\n"))
