@@ -82,7 +82,7 @@ func TestIntegration(t *testing.T) {
 
 	t.Run("GET command non-existing key", func(t *testing.T) {
 		response := sendCommand(t, conn, "GET nonexistent")
-		if response != "nil" {
+		if response != "Error: key not found" {
 			t.Errorf("expected nil, got %v", response)
 		}
 	})
