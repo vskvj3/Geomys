@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/vskvj3/geomys/internal/network"
@@ -10,8 +12,17 @@ import (
 )
 
 func main() {
+	// Access home dir for config
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Println("Error getting home directory:", err)
+		return
+	}
+
+	configPath := filepath.Join(homeDir, ".geomys", "geomys.conf")
+
 	// Load configuration
-	config, err := utils.LoadConfig("geomys.conf")
+	config, err := utils.LoadConfig(configPath)
 	if err != nil {
 		fmt.Println("Error loading configuration:", err)
 		return
