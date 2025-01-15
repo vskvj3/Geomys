@@ -3,22 +3,36 @@ package main
 import (
 	"fmt"
 	"net"
+	"strconv"
 
 	"github.com/vskvj3/geomys/internal/network"
+	"github.com/vskvj3/geomys/internal/utils"
 )
 
 func main() {
-	listener, err := net.Listen("tcp", ":6379")
+	// Load configuration
+	config, err := utils.LoadConfig("geomys.conf")
 	if err != nil {
-		fmt.Println("Error starting server:", err)
+		fmt.Println("Error loading configuration:", err)
 		return
 	}
-	defer listener.Close()
 
-	fmt.Println("Server is listening on port 6379...")
+	// Attempt to bind to the configured port
+	port := strconv.Itoa(config.Port)
+	listener, err := net.Listen("tcp", ":"+port)
+	if err != nil {
+		fmt.Printf("Port %s unavailable. Selecting a random port...\n", port)
+		listener, err = net.Listen("tcp", ":0") // Random port
+		if err != nil {
+			fmt.Println("Error starting server:", err)
+			return
+		}
+	}
+
+	defer listener.Close()
+	fmt.Printf("Server is listening on %s...\n", listener.Addr().String())
 
 	server := network.NewServer()
-
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
