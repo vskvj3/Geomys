@@ -42,13 +42,42 @@ func (h *CommandHandler) HandleCommand(conn net.Conn, request map[string]interfa
 		response = map[string]interface{}{"status": "OK", "message": message}
 
 	case "SET":
+		fmt.Println(request)
 		key, keyOk := request["key"].(string)
 		value, valueOk := request["value"].(string)
+		ttlMs := int64(0)
+
+		// Check for expiration (exp) and handle its type
+		if exp, ok := request["exp"]; ok {
+			switch v := exp.(type) {
+			case int8:
+				ttlMs = int64(v)
+			case int16:
+				ttlMs = int64(v)
+			case int32:
+				ttlMs = int64(v)
+			case int64:
+				ttlMs = v
+			case uint8:
+				ttlMs = int64(v)
+			case uint16:
+				ttlMs = int64(v)
+			case uint32:
+				ttlMs = int64(v)
+			default:
+				fmt.Printf("Invalid type for TTL: %T\n", v)
+			}
+		}
+
+		// Use key, value, and ttlMs as required
+		fmt.Printf("Key: %s, Value: %s, TTL: %d ms\n", key, value, ttlMs)
+
 		if !keyOk || !valueOk {
-			h.sendError(conn, "SET requires 'key' and 'value' fields")
+			h.sendError(conn, "SET requires 'key', 'value' fields")
 			return
 		}
-		if err := h.Database.Set(key, value); err != nil {
+		print(key, value, ttlMs)
+		if err := h.Database.Set(key, value, ttlMs); err != nil {
 			h.sendError(conn, err.Error())
 			return
 		}

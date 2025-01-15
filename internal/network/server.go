@@ -3,6 +3,7 @@ package network
 import (
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/vmihailenco/msgpack/v5"
 
@@ -15,6 +16,7 @@ type Server struct {
 
 func NewServer() *Server {
 	db := core.NewDatabase()
+	db.StartCleanup(100 * time.Millisecond)
 	handler := core.NewCommandHandler(db)
 	return &Server{CommandHandler: handler}
 }

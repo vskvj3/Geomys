@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/vmihailenco/msgpack/v5"
@@ -39,10 +40,13 @@ func argParser(input string) (map[string]interface{}, error) {
 	case "SET":
 		// SET requires a key and a value
 		if len(parts) < 3 {
-			return nil, fmt.Errorf("SET requires a key and value")
+			return nil, fmt.Errorf("SET requires a key, value and expiry(optional)")
 		}
 		request["key"] = parts[1]
 		request["value"] = parts[2]
+		if len(parts) > 3 {
+			request["exp"], _ = strconv.Atoi(parts[3])
+		}
 
 	case "GET":
 		// GET requires a key
