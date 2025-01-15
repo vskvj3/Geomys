@@ -1,8 +1,11 @@
 package core
 
 import (
+	"fmt"
 	"net"
 	"strings"
+
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 type CommandHandler struct {
@@ -15,49 +18,83 @@ func NewCommandHandler(db *Database) *CommandHandler {
 }
 
 // HandleCommand processes client commands and sends appropriate responses
-func (h *CommandHandler) HandleCommand(conn net.Conn, message string) {
-	// Parse the command and arguments
-	parts := strings.SplitN(strings.TrimSpace(message), " ", 3)
-	command := strings.ToUpper(parts[0])
+func (h *CommandHandler) HandleCommand(conn net.Conn, request map[string]interface{}) {
+	// Process the command
+	command, ok := request["command"].(string)
+	if !ok {
+		h.sendError(conn, "Invalid or missing 'command' field")
+		return
+	}
+
+	command = strings.ToUpper(command)
+	var response map[string]interface{}
 
 	switch command {
 	case "PING":
-		_, _ = conn.Write([]byte("PONG\n"))
+		response = map[string]interface{}{"status": "OK", "message": "PONG"}
 
 	case "ECHO":
-		if len(parts) < 2 {
-			_, _ = conn.Write([]byte("Error: ECHO requires a message\n"))
+		message, ok := request["message"].(string)
+		if !ok {
+			h.sendError(conn, "ECHO requires a 'message' field")
 			return
 		}
-		response := strings.Join(parts[1:], " ")
-		_, _ = conn.Write([]byte(response + "\n"))
+		response = map[string]interface{}{"status": "OK", "message": message}
 
 	case "SET":
-		if len(parts) < 3 {
-			_, _ = conn.Write([]byte("Error: SET requires a key and value\n"))
+		key, keyOk := request["key"].(string)
+		value, valueOk := request["value"].(string)
+		if !keyOk || !valueOk {
+			h.sendError(conn, "SET requires 'key' and 'value' fields")
 			return
 		}
-		key, value := parts[1], parts[2]
 		if err := h.Database.Set(key, value); err != nil {
-			_, _ = conn.Write([]byte("Error: " + err.Error() + "\n"))
-		} else {
-			_, _ = conn.Write([]byte("OK\n"))
+			h.sendError(conn, err.Error())
+			return
 		}
+		response = map[string]interface{}{"status": "OK"}
 
 	case "GET":
-		if len(parts) < 2 {
-			_, _ = conn.Write([]byte("Error: GET requires a key\n"))
+		key, ok := request["key"].(string)
+		if !ok {
+			h.sendError(conn, "GET requires a 'key' field")
 			return
 		}
-		key := parts[1]
 		value, err := h.Database.Get(key)
 		if err != nil {
-			_, _ = conn.Write([]byte("Error: " + err.Error() + "\n"))
+			h.sendError(conn, err.Error())
+			return
+		}
+		if value == "" {
+			response = map[string]interface{}{"status": "NOT_FOUND"}
 		} else {
-			_, _ = conn.Write([]byte(value + "\n"))
+			response = map[string]interface{}{"status": "OK", "value": value}
 		}
 
 	default:
-		_, _ = conn.Write([]byte("Unknown Command\n"))
+		h.sendError(conn, "Unknown command")
+		return
 	}
+
+	// Send the response
+	h.sendResponse(conn, response)
+}
+
+// sendResponse serializes the response and sends it to the client
+func (h *CommandHandler) sendResponse(conn net.Conn, response map[string]interface{}) {
+	data, err := msgpack.Marshal(response)
+	if err != nil {
+		fmt.Println("Failed to encode response:", err)
+		return
+	}
+	_, err = conn.Write(data)
+	if err != nil {
+		fmt.Println("Failed to send response:", err)
+	}
+}
+
+// sendError sends an error message to the client
+func (h *CommandHandler) sendError(conn net.Conn, errorMessage string) {
+	response := map[string]interface{}{"status": "ERROR", "message": errorMessage}
+	h.sendResponse(conn, response)
 }

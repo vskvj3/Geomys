@@ -3,25 +3,43 @@ package integration
 import (
 	"bufio"
 	"net"
-	"strings"
 	"testing"
 	"time"
 
+	"github.com/vmihailenco/msgpack/v5"
 	"github.com/vskvj3/geomys/internal/network"
 )
 
-// Helper function to send a command and receive the response
-func sendCommand(t *testing.T, conn net.Conn, command string) string {
-	_, err := conn.Write([]byte(command + "\n"))
+// Helper function to send a serialized command and receive the deserialized response
+func sendSerializedCommand(t *testing.T, conn net.Conn, command map[string]interface{}) map[string]interface{} {
+	// Serialize the command using MessagePack
+	data, err := msgpack.Marshal(command)
+	if err != nil {
+		t.Fatalf("failed to serialize command: %v", err)
+	}
+
+	// Send the serialized command
+	_, err = conn.Write(data)
 	if err != nil {
 		t.Fatalf("failed to send command: %v", err)
 	}
+
+	// Read the server's response
 	reader := bufio.NewReader(conn)
-	response, err := reader.ReadString('\n')
+	responseData := make([]byte, 1024) // Buffer size
+	n, err := reader.Read(responseData)
 	if err != nil {
 		t.Fatalf("failed to read response: %v", err)
 	}
-	return strings.TrimSpace(response)
+
+	// Deserialize the response
+	var response map[string]interface{}
+	err = msgpack.Unmarshal(responseData[:n], &response)
+	if err != nil {
+		t.Fatalf("failed to deserialize response: %v", err)
+	}
+
+	return response
 }
 
 func TestIntegration(t *testing.T) {
@@ -49,41 +67,66 @@ func TestIntegration(t *testing.T) {
 
 	// Test PING command
 	t.Run("PING command", func(t *testing.T) {
-		response := sendCommand(t, conn, "PING")
-		if response != "PONG" {
-			t.Errorf("expected PONG, got %v", response)
+		command := map[string]interface{}{"command": "PING"}
+		response := sendSerializedCommand(t, conn, command)
+		if response["status"] != "OK" || response["message"] != "PONG" {
+			t.Errorf("expected {status: OK, message: PONG}, got %v", response)
 		}
 	})
 
 	// Test ECHO command
 	t.Run("ECHO command", func(t *testing.T) {
-		response := sendCommand(t, conn, "ECHO Hello")
-		if response != "Hello" {
-			t.Errorf("expected Hello, got %v", response)
+		command := map[string]interface{}{
+			"command": "ECHO",
+			"message": "Hello",
+		}
+		response := sendSerializedCommand(t, conn, command)
+		if response["status"] != "OK" || response["message"] != "Hello" {
+			t.Errorf("expected {status: OK, message: Hello}, got %v", response)
 		}
 	})
 
 	// Test SET command
 	t.Run("SET command", func(t *testing.T) {
-		response := sendCommand(t, conn, "SET mykey myvalue")
-		if response != "OK" {
-			t.Errorf("expected OK, got %v", response)
+		command := map[string]interface{}{
+			"command": "SET",
+			"key":     "mykey",
+			"value":   "myvalue",
+		}
+		response := sendSerializedCommand(t, conn, command)
+		if response["status"] != "OK" {
+			t.Errorf("expected {status: OK}, got %v", response)
 		}
 	})
 
-	// Test GET command
+	// Test GET command for existing key
 	t.Run("GET command existing key", func(t *testing.T) {
-		_ = sendCommand(t, conn, "SET mykey myvalue")
-		response := sendCommand(t, conn, "GET mykey")
-		if response != "myvalue" {
-			t.Errorf("expected myvalue, got %v", response)
+		setCommand := map[string]interface{}{
+			"command": "SET",
+			"key":     "mykey",
+			"value":   "myvalue",
+		}
+		_ = sendSerializedCommand(t, conn, setCommand)
+
+		getCommand := map[string]interface{}{
+			"command": "GET",
+			"key":     "mykey",
+		}
+		response := sendSerializedCommand(t, conn, getCommand)
+		if response["status"] != "OK" || response["value"] != "myvalue" {
+			t.Errorf("expected {status: OK, value: myvalue}, got %v", response)
 		}
 	})
 
+	// Test GET command for non-existing key
 	t.Run("GET command non-existing key", func(t *testing.T) {
-		response := sendCommand(t, conn, "GET nonexistent")
-		if response != "Error: key not found" {
-			t.Errorf("expected nil, got %v", response)
+		getCommand := map[string]interface{}{
+			"command": "GET",
+			"key":     "nonexistent",
+		}
+		response := sendSerializedCommand(t, conn, getCommand)
+		if response["status"] != "ERROR" {
+			t.Errorf("expected {status: ERROR}, got %v", response)
 		}
 	})
 }

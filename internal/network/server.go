@@ -1,9 +1,10 @@
 package network
 
 import (
-	"bufio"
 	"fmt"
 	"net"
+
+	"github.com/vmihailenco/msgpack/v5"
 
 	"github.com/vskvj3/geomys/internal/core"
 )
@@ -20,14 +21,25 @@ func NewServer() *Server {
 
 func (s *Server) HandleConnection(conn net.Conn) {
 	defer conn.Close()
-	reader := bufio.NewReader(conn)
 
 	for {
-		message, err := reader.ReadString('\n')
+		buffer := make([]byte, 1024)
+		n, err := conn.Read(buffer)
+
 		if err != nil {
 			fmt.Println("Client disconnected:", err)
 			return
 		}
-		s.CommandHandler.HandleCommand(conn, message)
+
+		// Deserialize the incoming request
+		var request map[string]interface{}
+		err = msgpack.Unmarshal(buffer[:n], &request)
+
+		if err != nil {
+			fmt.Println("Failed to decode request:", err)
+			continue
+		}
+
+		s.CommandHandler.HandleCommand(conn, request)
 	}
 }
