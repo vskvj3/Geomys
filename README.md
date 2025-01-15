@@ -1,9 +1,10 @@
 # Geomys
-A Distributed In-memory Cache written in Go
+A Distributed In-Memory Cache written in Go
 
-## Suggested Structure and TODO
+---
+## Structural AIM
 ```
-redis-clone/
+geomys/
 ├── cmd/
 │   ├── server/
 │   │   └── main.go       # Entry point for the server
@@ -36,3 +37,18 @@ redis-clone/
 ├── go.mod                # Go module file
 └── README.md             # Project description and usage
 ```
+
+## TODO [Chores]
+- Clean up code
+- Add proper exception handling
+
+## TODO [Features]
+Some features to include:
+- [x] Expiration
+- [ ] Complex data types
+- [ ] Hash collision detection and management
+- [ ] Persistence
+- [ ] Clustering
+- [ ] Replication
+- [ ] Sharding
+- [ ] Transaction support
