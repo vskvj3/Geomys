@@ -89,6 +89,13 @@ func argParser(input string) (map[string]interface{}, error) {
 		}
 		request["key"] = parts[1]
 
+	case "INCR":
+		if len(parts) < 3 {
+			return nil, fmt.Errorf("INCR requires a key, and offset")
+		}
+		request["key"] = parts[1]
+		request["offset"] = parts[2]
+
 	default:
 		return nil, fmt.Errorf("unknown command: %s", command)
 	}

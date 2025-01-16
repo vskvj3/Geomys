@@ -100,7 +100,7 @@ func (h *CommandHandler) HandleCommand(conn net.Conn, request map[string]interfa
 	case "INCR":
 		key, keyOk := request["key"].(string)
 		offset, offsetOk := request["offset"].(string) // JSON numbers are unmarshaled as float64
-		println(key, offset)
+
 		if !keyOk {
 			h.sendError(conn, "INCR requires a 'key' field")
 			return
@@ -126,8 +126,8 @@ func (h *CommandHandler) HandleCommand(conn net.Conn, request map[string]interfa
 
 		// Send the success response
 		response = map[string]interface{}{
-			"status":    "OK",
-			"new_value": newValue,
+			"status": "OK",
+			"value":  newValue,
 		}
 
 	default:
