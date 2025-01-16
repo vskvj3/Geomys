@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -39,7 +40,8 @@ func getDefaultLogFilePath() string {
 	if err := os.MkdirAll(logDir, 0755); err != nil {
 		log.Fatalf("Failed to create log directory: %v", err)
 	}
-	return filepath.Join(logDir, "geomys.log")
+	fmt.Println(logDir)
+	return filepath.Join(logDir, "server.log")
 }
 
 // NewLogger creates a new logger instance (singleton)
@@ -48,6 +50,7 @@ func NewLogger(logFilePath string, debugMode bool) *Logger {
 		if logFilePath == "" {
 			logFilePath = getDefaultLogFilePath()
 		}
+		fmt.Println(logFilePath)
 
 		// Open the log file
 		file, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)

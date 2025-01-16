@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -12,10 +11,12 @@ import (
 )
 
 func main() {
+	logger := utils.NewLogger("", true) // "app.log" is the log file, debugMode=true enables debug logs
+
 	// Access home dir for config
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		fmt.Println("Error getting home directory:", err)
+		logger.Error("Error getting home directory: " + err.Error())
 		return
 	}
 
@@ -24,7 +25,7 @@ func main() {
 	// Load configuration
 	config, err := utils.LoadConfig(configPath)
 	if err != nil {
-		fmt.Println("Error loading configuration:", err)
+		logger.Error("Error loading configuration: " + err.Error())
 		return
 	}
 
@@ -32,22 +33,22 @@ func main() {
 	port := strconv.Itoa(config.Port)
 	listener, err := net.Listen("tcp", ":"+port)
 	if err != nil {
-		fmt.Printf("Port %s unavailable. Selecting a random port...\n", port)
+		logger.Info("Port " + port + " unavailable. Selecting a random port...\n")
 		listener, err = net.Listen("tcp", ":0") // Random port
 		if err != nil {
-			fmt.Println("Error starting server:", err)
+			logger.Error("Error starting server: " + err.Error())
 			return
 		}
 	}
 
 	defer listener.Close()
-	fmt.Printf("Server is listening on %s...\n", listener.Addr().String())
+	logger.Info("Server is listening on " + listener.Addr().String())
 
 	server := network.NewServer()
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			fmt.Println("Error accepting connection:", err)
+			logger.Error("Error accepting connection: " + err.Error())
 			continue
 		}
 		go server.HandleConnection(conn)
