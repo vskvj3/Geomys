@@ -2,6 +2,7 @@ package core
 
 import (
 	"net"
+	"strconv"
 	"strings"
 
 	"github.com/vmihailenco/msgpack/v5"
@@ -72,7 +73,7 @@ func (h *CommandHandler) HandleCommand(conn net.Conn, request map[string]interfa
 			h.sendError(conn, "SET requires 'key', 'value' fields")
 			return
 		}
-		print(key, value, ttlMs)
+
 		if err := h.Database.Set(key, value, ttlMs); err != nil {
 			h.sendError(conn, err.Error())
 			return
@@ -94,6 +95,39 @@ func (h *CommandHandler) HandleCommand(conn net.Conn, request map[string]interfa
 			response = map[string]interface{}{"status": "NOT_FOUND"}
 		} else {
 			response = map[string]interface{}{"status": "OK", "value": value}
+		}
+
+	case "INCR":
+		key, keyOk := request["key"].(string)
+		offset, offsetOk := request["offset"].(string) // JSON numbers are unmarshaled as float64
+		println(key, offset)
+		if !keyOk {
+			h.sendError(conn, "INCR requires a 'key' field")
+			return
+		}
+		if !offsetOk {
+			h.sendError(conn, "INCR requires an 'offset' field (integer)")
+			return
+		}
+
+		// Convert offset to int
+		intOffset, err := strconv.Atoi(offset)
+		if err != nil {
+			h.sendError(conn, err.Error())
+			return
+		}
+
+		// Call the Incr function
+		newValue, err := h.Database.Incr(key, intOffset)
+		if err != nil {
+			h.sendError(conn, err.Error())
+			return
+		}
+
+		// Send the success response
+		response = map[string]interface{}{
+			"status":    "OK",
+			"new_value": newValue,
 		}
 
 	default:

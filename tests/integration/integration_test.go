@@ -2,6 +2,7 @@ package integration
 
 import (
 	"bufio"
+	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -118,6 +119,75 @@ func TestIntegration(t *testing.T) {
 		response := sendSerializedCommand(t, conn, getCommand)
 		if response["status"] != "ERROR" {
 			t.Errorf("expected {status: ERROR}, got %v", response)
+		}
+	})
+
+	t.Run("INCR command on existing integer key", func(t *testing.T) {
+		// Set an initial value for the key
+		setCommand := map[string]interface{}{
+			"command": "SET",
+			"key":     "counter",
+			"value":   "10",
+		}
+		response := sendSerializedCommand(t, conn, setCommand)
+		if response["status"] != "OK" {
+			t.Errorf("expected {status: OK} for SET command, got %v", response)
+		}
+
+		// Increment the key by 5
+		incrCommand := map[string]interface{}{
+			"command": "INCR",
+			"key":     "counter",
+			"offset":  "5",
+		}
+		response = sendSerializedCommand(t, conn, incrCommand)
+		if response["status"] != "OK" {
+			t.Errorf("expected {status: OK} for INCR command, got %v", response)
+		}
+		if response["new_value"] != int8(15) { // JSON numbers are unmarshaled as float64
+			t.Errorf("expected new_value: 15 of int8, got %v of type %v", response["new_value"], fmt.Sprintf("%T", response["new_value"]))
+		}
+	})
+
+	t.Run("INCR command on non-existing key", func(t *testing.T) {
+		incrCommand := map[string]interface{}{
+			"command": "INCR",
+			"key":     "nonexistent",
+			"offset":  "3",
+		}
+		response := sendSerializedCommand(t, conn, incrCommand)
+		if response["status"] != "ERROR" {
+			t.Errorf("expected {status: ERROR}, got %v", response)
+		}
+		if response["message"] != "key not found" {
+			t.Errorf("expected error message: 'key not found', got %v", response["message"])
+		}
+	})
+
+	t.Run("INCR command on non-integer value", func(t *testing.T) {
+		// Set a non-integer value for the key
+		setCommand := map[string]interface{}{
+			"command": "SET",
+			"key":     "stringValue",
+			"value":   "hello",
+		}
+		response := sendSerializedCommand(t, conn, setCommand)
+		if response["status"] != "OK" {
+			t.Errorf("expected {status: OK} for SET command, got %v", response)
+		}
+
+		// Try to increment the non-integer value
+		incrCommand := map[string]interface{}{
+			"command": "INCR",
+			"key":     "stringValue",
+			"offset":  "2",
+		}
+		response = sendSerializedCommand(t, conn, incrCommand)
+		if response["status"] != "ERROR" {
+			t.Errorf("expected {status: ERROR}, got %v", response)
+		}
+		if response["message"] != "value is not an integer" {
+			t.Errorf("expected error message: 'value is not an integer', got %v", response["message"])
 		}
 	})
 }

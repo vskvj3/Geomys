@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -58,6 +59,36 @@ func (db *Database) Get(key string) (string, error) {
 		return "", errors.New("key not found")
 	}
 	return value, nil
+}
+
+// Incr increments the integer value of a key by a given offset
+func (db *Database) Incr(key string, offset int) (int, error) {
+	// Validate input
+	if key == "" {
+		return 0, errors.New("key cannot be empty")
+	}
+
+	// Lock the database to ensure thread safety
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	// Check if the key exists
+	value, exists := db.store[key]
+	if !exists {
+		return 0, errors.New("key not found")
+	}
+
+	// Parse the current value as an integer
+	currentValue, err := strconv.Atoi(value)
+	if err != nil {
+		return 0, errors.New("value is not an integer")
+	}
+
+	// Increment the value by the given offset
+	newValue := currentValue + offset
+	db.store[key] = strconv.Itoa(newValue)
+
+	return newValue, nil
 }
 
 func (db *Database) StartCleanup(interval time.Duration) {

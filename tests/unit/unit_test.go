@@ -51,4 +51,40 @@ func TestCoreCommands(t *testing.T) {
 		}
 	})
 
+	t.Run("INCR command existing integer key", func(t *testing.T) {
+		// Set an initial integer value for the key
+		_ = db.Set("counter", "10", 100)
+
+		// Increment the value by 5
+		newValue, err := db.Incr("counter", 5)
+		if err != nil || newValue != 15 {
+			t.Errorf("expected newValue: 15, got %v (error: %v)", newValue, err)
+		}
+
+		// Verify the value in the database
+		value, _ := db.Get("counter")
+		if value != "15" {
+			t.Errorf("expected value: 15, got %v", value)
+		}
+	})
+
+	t.Run("INCR command non-existing key", func(t *testing.T) {
+		// Attempt to increment a non-existing key
+		_, err := db.Incr("nonexistent", 3)
+		if err == nil || err.Error() != "key not found" {
+			t.Errorf("expected error: key not found, got %v", err)
+		}
+	})
+
+	t.Run("INCR command non-integer value", func(t *testing.T) {
+		// Set a non-integer value for the key
+		_ = db.Set("stringValue", "hello", 100)
+
+		// Attempt to increment the non-integer value
+		_, err := db.Incr("stringValue", 2)
+		if err == nil || err.Error() != "value is not an integer" {
+			t.Errorf("expected error: value is not an integer, got %v", err)
+		}
+	})
+
 }
