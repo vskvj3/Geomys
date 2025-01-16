@@ -165,7 +165,7 @@ func TestIntegration(t *testing.T) {
 		incrCommand := map[string]interface{}{
 			"command": "INCR",
 			"key":     "counter",
-			"offset":  "5",
+			"offset":  "1",
 		}
 		response = sendSerializedCommand(t, conn, incrCommand)
 		if response["status"] != "OK" {
