@@ -46,7 +46,7 @@ func sendSerializedCommand(t *testing.T, conn net.Conn, command map[string]inter
 
 func TestIntegration(t *testing.T) {
 	// Initialize the logger
-	utils.NewLogger("", true)
+	utils.NewLogger("", false)
 
 	// Start the server in a goroutine
 	go func() {
