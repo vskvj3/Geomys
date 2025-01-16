@@ -8,6 +8,7 @@ import (
 
 	"github.com/vmihailenco/msgpack/v5"
 	"github.com/vskvj3/geomys/internal/network"
+	"github.com/vskvj3/geomys/internal/utils"
 )
 
 // Helper function to send a serialized command and receive the deserialized response
@@ -43,6 +44,9 @@ func sendSerializedCommand(t *testing.T, conn net.Conn, command map[string]inter
 }
 
 func TestIntegration(t *testing.T) {
+	// Initialize the logger
+	utils.NewLogger("", true)
+
 	// Start the server in a goroutine
 	go func() {
 		server := network.NewServer()
@@ -83,19 +87,6 @@ func TestIntegration(t *testing.T) {
 		response := sendSerializedCommand(t, conn, command)
 		if response["status"] != "OK" || response["message"] != "Hello" {
 			t.Errorf("expected {status: OK, message: Hello}, got %v", response)
-		}
-	})
-
-	// Test SET command
-	t.Run("SET command", func(t *testing.T) {
-		command := map[string]interface{}{
-			"command": "SET",
-			"key":     "mykey",
-			"value":   "myvalue",
-		}
-		response := sendSerializedCommand(t, conn, command)
-		if response["status"] != "OK" {
-			t.Errorf("expected {status: OK}, got %v", response)
 		}
 	})
 

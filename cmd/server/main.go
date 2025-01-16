@@ -11,9 +11,9 @@ import (
 )
 
 func main() {
-	logger := utils.NewLogger("", true) // "app.log" is the log file, debugMode=true enables debug logs
+	logger := utils.NewLogger("", true)
 
-	// Access home dir for config
+	// Try to load configs from homedir
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		logger.Error("Error getting home directory: " + err.Error())
@@ -22,19 +22,19 @@ func main() {
 
 	configPath := filepath.Join(homeDir, ".geomys", "geomys.conf")
 
-	// Load configuration
 	config, err := utils.LoadConfig(configPath)
 	if err != nil {
 		logger.Error("Error loading configuration: " + err.Error())
 		return
 	}
+	logger.Info("Loaded configurations from " + configPath)
 
 	// Attempt to bind to the configured port
 	port := strconv.Itoa(config.Port)
 	listener, err := net.Listen("tcp", ":"+port)
 	if err != nil {
-		logger.Info("Port " + port + " unavailable. Selecting a random port...\n")
-		listener, err = net.Listen("tcp", ":0") // Random port
+		logger.Warn("Port " + port + " unavailable. Selecting a random port...\n")
+		listener, err = net.Listen("tcp", ":0")
 		if err != nil {
 			logger.Error("Error starting server: " + err.Error())
 			return
@@ -51,6 +51,7 @@ func main() {
 			logger.Error("Error accepting connection: " + err.Error())
 			continue
 		}
+		logger.Info("Accepted client :" + conn.RemoteAddr().String())
 		go server.HandleConnection(conn)
 	}
 }

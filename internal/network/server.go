@@ -1,13 +1,14 @@
 package network
 
 import (
-	"fmt"
+	"errors"
+	"io"
 	"net"
 	"time"
 
 	"github.com/vmihailenco/msgpack/v5"
-
 	"github.com/vskvj3/geomys/internal/core"
+	"github.com/vskvj3/geomys/internal/utils"
 )
 
 type Server struct {
@@ -22,14 +23,26 @@ func NewServer() *Server {
 }
 
 func (s *Server) HandleConnection(conn net.Conn) {
-	defer conn.Close()
+	defer func() {
+		logger := utils.GetLogger() // Use the singleton logger
+		logger.Info("Client disconnected: " + conn.RemoteAddr().String())
+		conn.Close()
+	}()
+
+	logger := utils.GetLogger() // Use the singleton logger
 
 	for {
 		buffer := make([]byte, 1024)
 		n, err := conn.Read(buffer)
 
 		if err != nil {
-			fmt.Println("Client disconnected:", err)
+			if errors.Is(err, io.EOF) {
+				// Client closed the connection
+				logger.Info("Client closed the connection: " + conn.RemoteAddr().String())
+			} else {
+				// Other errors
+				logger.Error("Error reading from client: " + err.Error())
+			}
 			return
 		}
 
@@ -38,9 +51,12 @@ func (s *Server) HandleConnection(conn net.Conn) {
 		err = msgpack.Unmarshal(buffer[:n], &request)
 
 		if err != nil {
-			fmt.Println("Failed to decode request:", err)
+			logger.Error("Failed to decode request: " + err.Error())
 			continue
 		}
+
+		// Log the received request (optional, for debugging)
+		logger.Debug("Received request from client: " + conn.RemoteAddr().String())
 
 		s.CommandHandler.HandleCommand(conn, request)
 	}
