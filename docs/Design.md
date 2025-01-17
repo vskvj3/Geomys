@@ -1,3 +1,44 @@
+## Commands
+### ECHO
+request:
+```python
+{'command': 'ECHO', 'message': 'hello'}
+```
+response:
+```python
+{'status': 'OK', 'message': 'hello'}   
+```
+### SET
+request:
+```python
+{'command': 'SET', 'key': 'story', 'value': 'quick fox jumbs over a lazy dog'}
+```
+response:
+```python
+{'status': 'OK'}
+```
+
+### GET
+request:
+```python
+{'command': 'GET', 'key': 'story'}
+```
+response:
+```python
+{'status': 'OK', 'value': 'quick fox jumbs over a lazy dog'}
+```
+
+### INCR
+- only applicable to integer counters
+
+request
+```python
+{'command': 'INCR', 'key': 'counter', 'offset': '1'}
+```
+response
+```python
+{'status': 'OK', 'value': 2}
+```
 ## Data Types:
 There are some data types we are planning to itegrate into the key value store
 ### Strings
