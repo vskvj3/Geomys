@@ -79,8 +79,31 @@ server returns a messagepack with `value` set to new value upon completion.
 
 ### Stack [Under Construction]
 - Stack is the LIFO list supported by geomys
+
+Some considerations when implementing stack
+```python
+    req1: {'command': 'SPUSH', 'key': 'test-stack', 'value': '1'}
+    resp: {'status': 'OK'}
+
+    req2: {'command': 'SPUSH', 'key': 'test-stack', 'value': '2'}
+    resp: {'status': 'OK'}
+
+    req3: {'command': 'SPOP', 'key': 'test-stack'}
+    resp: {'status': 'OK', 'value': '2'}
+```
 ### Queue [Under Construction]
 - Queue is the FIFO list supported by geomys
+Some considerations when implementing stack
+```python
+    req1: {'command': 'QPUSH', 'key': 'test-stack', 'value': '1'}
+    resp: {'status': 'OK'}
+
+    req2: {'command': 'QPUSH', 'key': 'test-stack', 'value': '2'}
+    resp: {'status': 'OK'}
+
+    req3: {'command': 'QPOP', 'key': 'test-stack'}
+    resp: {'status': 'OK', 'value': '1'}
+```
 ## Collision behaviour
 This part explains the behaviour of basic set command:
 - If key already exists
