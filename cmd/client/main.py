@@ -65,10 +65,26 @@ def arg_parser(input):
         request["key"] = parts[1]
         request["offset"] = parts[2]
 
+    elif command == "PUSH":
+        if len(parts) < 3:
+            raise ValueError("PUSH requires a key, value")
+        request["key"] = parts[1]
+        request["value"] = parts[2]
+    
+    elif command == "LPOP":
+        if len(parts) < 2:
+            raise ValueError("LPOP requires a key")
+        request["key"] = parts[1]
+
+    elif command == "RPOP":
+        if len(parts) < 2:
+            raise ValueError("RPOP requires a key")
+        request["key"] = parts[1]
+
     else:
         raise ValueError(f"Unknown command: {command}")
 
-    print(request)
+    print("request:", request)
 
     return request
 
@@ -98,7 +114,7 @@ def main():
 
                 response = conn.recv(4096)
                 server_response = msgpack.unpackb(response, strict_map_key=False)
-                print(server_response)
+                print("respose:", server_response)
                 status = server_response.get("status")
                 if status == "OK":
                     message = server_response.get("message")
