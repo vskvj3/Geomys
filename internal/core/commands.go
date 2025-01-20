@@ -92,6 +92,7 @@ func (h *CommandHandler) HandleCommand(conn net.Conn, request map[string]interfa
 			return
 		}
 		if value == "" {
+			// If it does this, you are doing something very very wrong!!
 			response = map[string]interface{}{"status": "NOT_FOUND"}
 		} else {
 			response = map[string]interface{}{"status": "OK", "value": value}
@@ -128,6 +129,59 @@ func (h *CommandHandler) HandleCommand(conn net.Conn, request map[string]interfa
 		response = map[string]interface{}{
 			"status": "OK",
 			"value":  newValue,
+		}
+
+	case "PUSH":
+		key, keyOk := request["key"].(string)
+		value, valueOk := request["value"].(string)
+
+		if !keyOk || !valueOk {
+			h.sendError(conn, "PUSH requires 'key', 'value' fields")
+			return
+		}
+
+		if err := h.Database.Push(key, value); err != nil {
+			h.sendError(conn, err.Error())
+			return
+		}
+		response = map[string]interface{}{"status": "OK"}
+
+	case "LPOP":
+		key, ok := request["key"].(string)
+		if !ok {
+			h.sendError(conn, "LPOP requires a 'key' field")
+			return
+		}
+		value, err := h.Database.Lpop(key)
+		if err != nil {
+			h.sendError(conn, err.Error())
+			return
+		}
+
+		if value == "" {
+			// If it does this, you are doing something very very wrong!!
+			response = map[string]interface{}{"status": "NOT_FOUND"}
+		} else {
+			response = map[string]interface{}{"status": "OK", "value": value}
+		}
+
+	case "RPOP":
+		key, ok := request["key"].(string)
+		if !ok {
+			h.sendError(conn, "LPOP requires a 'key' field")
+			return
+		}
+		value, err := h.Database.Rpop(key)
+		if err != nil {
+			h.sendError(conn, err.Error())
+			return
+		}
+
+		if value == "" {
+			// If it does this, you are doing something very very wrong!!
+			response = map[string]interface{}{"status": "NOT_FOUND"}
+		} else {
+			response = map[string]interface{}{"status": "OK", "value": value}
 		}
 
 	default:
