@@ -108,6 +108,11 @@ func TestCoreCommands(t *testing.T) {
 		if err != nil || item != "item2" {
 			t.Errorf("expected item2, got %v (error: %v)", item, err)
 		}
+
+		item, err = db.Lpop("list2")
+		if err != nil || item != "item3" {
+			t.Errorf("expected item2, got %v (error: %v)", item, err)
+		}
 	})
 
 	t.Run("RPOP command", func(t *testing.T) {
@@ -124,17 +129,34 @@ func TestCoreCommands(t *testing.T) {
 		if err != nil || item != "item2" {
 			t.Errorf("expected item2, got %v (error: %v)", item, err)
 		}
+
+		item, err = db.Rpop("list3")
+		if err != nil || item != "item1" {
+			t.Errorf("expected item1, got %v (error: %v)", item, err)
+		}
 	})
 
 	t.Run("LPOP/RPOP from empty list", func(t *testing.T) {
-		_, err := db.Lpop("emptylist")
-		if err == nil || err.Error() != "list is empty or does not exist" {
-			t.Errorf("expected error: list is empty or does not exist, got %v", err)
+		_, err := db.Lpop("list2")
+		if err == nil || err.Error() != "list is empty" {
+			t.Errorf("expected error: list is empty, got %v", err)
 		}
 
-		_, err = db.Rpop("emptylist")
-		if err == nil || err.Error() != "list is empty or does not exist" {
-			t.Errorf("expected error: list is empty or does not exist, got %v", err)
+		_, err = db.Rpop("list3")
+		if err == nil || err.Error() != "list is empty" {
+			t.Errorf("expected error: list is empty, got %v", err)
+		}
+	})
+
+	t.Run("LPOP/RPOP from a non existent list", func(t *testing.T) {
+		_, err := db.Lpop("notlist")
+		if err == nil || err.Error() != "list does not exist" {
+			t.Errorf("expected error: list does not exist, got %v", err)
+		}
+
+		_, err = db.Rpop("notlist")
+		if err == nil || err.Error() != "list does not exist" {
+			t.Errorf("expected error: list does not exist, got %v", err)
 		}
 	})
 }

@@ -217,4 +217,98 @@ func TestIntegration(t *testing.T) {
 			t.Errorf("expected error message: 'value is not an integer', got %v", response["message"])
 		}
 	})
+
+	t.Run("PUSH command", func(t *testing.T) {
+		pushCommand := map[string]interface{}{
+			"command": "PUSH",
+			"key":     "listOne",
+			"value":   "item1",
+		}
+		response := sendSerializedCommand(t, conn, pushCommand)
+		if response["status"] != "OK" {
+			t.Errorf("expected {status: OK} for PUSH command, got %v", response)
+		}
+
+		// Push another item to the list
+		pushCommand["value"] = "item2"
+		response = sendSerializedCommand(t, conn, pushCommand)
+		if response["status"] != "OK" {
+			t.Errorf("expected {status: OK} for PUSH command, got %v", response)
+		}
+	})
+
+	t.Run("LPOP command", func(t *testing.T) {
+		// Push items to the list for testing
+		sendSerializedCommand(t, conn, map[string]interface{}{
+			"command": "PUSH",
+			"key":     "listKey",
+			"value":   "item1",
+		})
+		sendSerializedCommand(t, conn, map[string]interface{}{
+			"command": "PUSH",
+			"key":     "listKey",
+			"value":   "item2",
+		})
+
+		// Pop the leftmost item
+		lpopCommand := map[string]interface{}{
+			"command": "LPOP",
+			"key":     "listKey",
+		}
+		response := sendSerializedCommand(t, conn, lpopCommand)
+		if response["status"] != "OK" || response["value"] != "item1" {
+			t.Errorf("expected {status: OK, value: item1}, got %v", response)
+		}
+
+		// Pop the next leftmost item
+		response = sendSerializedCommand(t, conn, lpopCommand)
+		if response["status"] != "OK" || response["value"] != "item2" {
+			t.Errorf("expected {status: OK, value: item2}, got %v", response)
+		}
+
+		// Try to pop from an empty list
+		response = sendSerializedCommand(t, conn, lpopCommand)
+		if response["status"] != "ERROR" {
+			t.Errorf("expected {status: ERROR}, got %v", response)
+		}
+	})
+
+	t.Run("RPOP command", func(t *testing.T) {
+		// Push items to the list for testing
+		sendSerializedCommand(t, conn, map[string]interface{}{
+			"command": "PUSH",
+			"key":     "listKey",
+			"value":   "item1",
+		})
+		sendSerializedCommand(t, conn, map[string]interface{}{
+			"command": "PUSH",
+			"key":     "listKey",
+			"value":   "item2",
+		})
+
+		// Pop the rightmost item
+		rpopCommand := map[string]interface{}{
+			"command": "RPOP",
+			"key":     "listKey",
+		}
+		response := sendSerializedCommand(t, conn, rpopCommand)
+		if response["status"] != "OK" || response["value"] != "item2" {
+			t.Errorf("expected {status: OK, value: item2}, got %v", response)
+		}
+
+		// Pop the next rightmost item
+		response = sendSerializedCommand(t, conn, rpopCommand)
+		if response["status"] != "OK" || response["value"] != "item1" {
+			t.Errorf("expected {status: OK, value: item1}, got %v", response)
+		}
+
+		// Try to pop from an empty list
+		// In future, we migrate this test into status: NOT_FOUND
+		// since item not found is not an error, it is condition, makes more sense?
+		response = sendSerializedCommand(t, conn, rpopCommand)
+		if response["status"] != "ERROR" {
+			t.Errorf("expected {status: ERROR}, got %v", response)
+		}
+	})
+
 }

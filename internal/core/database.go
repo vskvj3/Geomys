@@ -112,8 +112,12 @@ func (db *Database) Lpop(key string) (string, error) {
 	defer db.mu.Unlock()
 
 	list, exists := db.lists[key]
-	if !exists || len(list) == 0 {
-		return "", errors.New("list is empty or does not exist")
+	if !exists {
+		return "", errors.New("list does not exist")
+	}
+
+	if len(list) == 0 {
+		return "", errors.New("list is empty")
 	}
 
 	// Retrieve and remove the first element
@@ -133,8 +137,12 @@ func (db *Database) Rpop(key string) (string, error) {
 	defer db.mu.Unlock()
 
 	list, exists := db.lists[key]
-	if !exists || len(list) == 0 {
-		return "", errors.New("list is empty or does not exist")
+	if !exists {
+		return "", errors.New("list does not exist")
+	}
+
+	if len(list) == 0 {
+		return "", errors.New("list is empty")
 	}
 
 	// Retrieve and remove the last element
