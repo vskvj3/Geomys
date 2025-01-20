@@ -123,3 +123,11 @@ This part explains the behaviour of basic set command:
 ### Write Through Disk
 - Every write operation to the cache is immediately written to the persistent storage
 - It has significate write overhead and should only be used in cases where reliability > latency
+
+### Upcoming Considerations:
+- Blocking and non  blocking commands
+> In redis there are blocking and non blocking commands
+> - for more info [see](https://redis.io/docs/latest/commands/blpop/)\
+> In lists BLPOP command block the client connection if the list is empty untill anything is pushed into the list again(Instead of returning an error that the element does not exists)
+> - It can take a timeout value, which specifies when the blocking ends.
+> 
