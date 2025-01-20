@@ -1,8 +1,6 @@
-'''
-Example client written in python
-'''
 import socket
 import msgpack
+import time
 
 def arg_parser(input):
     parts = []
@@ -84,8 +82,6 @@ def arg_parser(input):
     else:
         raise ValueError(f"Unknown command: {command}")
 
-    print("request:", request)
-
     return request
 
 def main():
@@ -110,25 +106,30 @@ def main():
 
             try:
                 data = msgpack.packb(request)
+                start_time = time.time()  # Start time before sending the request
                 conn.sendall(data)
 
                 response = conn.recv(4096)
+                end_time = time.time()  # End time after receiving the response
+                response_time = (end_time - start_time) * 1000  # Convert to milliseconds
+
                 server_response = msgpack.unpackb(response, strict_map_key=False)
-                print("respose:", server_response)
                 status = server_response.get("status")
                 if status == "OK":
                     message = server_response.get("message")
                     value = server_response.get("value")
                     if message:
-                        print("Server:", message)
+                        print(f"Server: {message}")
                     elif value:
-                        print("Server:", value)
+                        print(f"Server: {value}")
                     else:
                         print("Server: OK")
                 elif status == "ERROR":
-                    print("Server Error:", server_response.get("message"))
+                    print(f"Server Error: {server_response.get('message')}")
                 else:
-                    print("Unexpected server response:", server_response)
+                    print(f"Unexpected server response: {server_response}")
+
+                print(f"Response time: {response_time:.2f} ms")
 
             except Exception as e:
                 print(f"Error communicating with server: {e}")
