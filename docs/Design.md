@@ -1,3 +1,7 @@
+> [!NOTE]
+> This document contains design decisions and implementaion considerations
+> This is not a usage documentation or instruction, If someone just want to know the features, there is no need to waste your time with this!
+
 ## Commands
 ### ECHO
 request:
@@ -104,7 +108,29 @@ Some considerations when implementing stack
     req3: {'command': 'QPOP', 'key': 'test-stack'}
     resp: {'status': 'OK', 'value': '1'}
 ```
-- What if we can implement both stack and queues inside same structure?
+#### Update:
+- Decided to implement both stack and queues inside same structure.
+- The single structure will be called LIST and supports two operations:
+    - PUSH: Insert an element to an existsing list, create a new list if it does not exists.
+    - RPOP: Pop an element from the end of the list.
+    - LPOP: Pop an element from the start of the list.
+- All of these commands and non-blocking and returns `STATUS:ERROR` upon unsuccessful execution.
+```Python
+    req: {'command': 'PUSH', 'key': 'test-stack', 'value': '1'}
+    res: {'status': 'OK'}
+
+    req: {'command': 'PUSH', 'key': 'test-stack', 'value': '2'}
+    res: {'status': 'OK'}
+
+    req: {'command': 'PUSH', 'key': 'test-stack', 'value': '3'}
+    res: {'status': 'OK'}
+
+    req: {'command': 'LPOP', 'key': 'test-stack'}
+    res: {'status': 'OK', 'value': '1'}
+
+    req: {'command': 'RPOP', 'key': 'test-stack'}
+    res: {'status': 'OK', 'value': '3'}
+```
 - Additional considerations on implementation:
     - Don't use normal lists and list slicing, since it introduces additional memory overhead.
     - Slicing method will also introduce time related overhead when coming to pop operations.
