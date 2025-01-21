@@ -104,6 +104,11 @@ Some considerations when implementing stack
     req3: {'command': 'QPOP', 'key': 'test-stack'}
     resp: {'status': 'OK', 'value': '1'}
 ```
+- What if we can implement both stack and queues inside same structure?
+- Additional considerations on implementation:
+    - Don't use normal lists and list slicing, since it introduces additional memory overhead.
+    - Slicing method will also introduce time related overhead when coming to pop operations.
+    - Go collections have their own queue and stack implementation, can we modify the internal implementation and use that for our queue/stack?
 ## Collision behaviour
 This part explains the behaviour of basic set command:
 - If key already exists
