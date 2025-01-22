@@ -81,35 +81,8 @@ map[command:INCR key:value_count offset:1]
 ```
 server returns a messagepack with `value` set to new value upon completion.
 
-### Stack [Under Construction]
-- Stack is the LIFO list supported by geomys
-
-Some considerations when implementing stack
-```python
-    req1: {'command': 'SPUSH', 'key': 'test-stack', 'value': '1'}
-    resp: {'status': 'OK'}
-
-    req2: {'command': 'SPUSH', 'key': 'test-stack', 'value': '2'}
-    resp: {'status': 'OK'}
-
-    req3: {'command': 'SPOP', 'key': 'test-stack'}
-    resp: {'status': 'OK', 'value': '2'}
-```
-### Queue [Under Construction]
-- Queue is the FIFO list supported by geomys
-Some considerations when implementing stack
-```python
-    req1: {'command': 'QPUSH', 'key': 'test-stack', 'value': '1'}
-    resp: {'status': 'OK'}
-
-    req2: {'command': 'QPUSH', 'key': 'test-stack', 'value': '2'}
-    resp: {'status': 'OK'}
-
-    req3: {'command': 'QPOP', 'key': 'test-stack'}
-    resp: {'status': 'OK', 'value': '1'}
-```
-#### Update:
-- Decided to implement both stack and queues inside same structure.
+### Stack and Queue
+- Both stack and queues are implemented inside same structure.
 - The single structure will be called LIST and supports two operations:
     - PUSH: Insert an element to an existsing list, create a new list if it does not exists.
     - RPOP: Pop an element from the end of the list.
