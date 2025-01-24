@@ -10,8 +10,8 @@ import (
 type Database struct {
 	mu     sync.Mutex
 	store  map[string]string
-	expiry map[string]int64    // when the key expires?
-	lists  map[string][]string // Key-list mappings (used for both stacks and queues)
+	expiry map[string]int64 // When the key expires
+	lists  map[string]*List // Key-list mappings using the new List type
 }
 
 // Create a new database instance
@@ -19,7 +19,7 @@ func NewDatabase() *Database {
 	return &Database{
 		store:  make(map[string]string),
 		expiry: make(map[string]int64),
-		lists:  make(map[string][]string),
+		lists:  make(map[string]*List),
 	}
 }
 
@@ -83,8 +83,8 @@ func (db *Database) Incr(key string, offset int) (int, error) {
 	return newValue, nil
 }
 
-// Push adds an item to the stack/queue
-func (db *Database) Push(key, value string) error {
+// LPush adds an item to the left of the list
+func (db *Database) LPush(key string, value interface{}) error {
 	if key == "" {
 		return errors.New("key cannot be empty")
 	}
@@ -94,43 +94,37 @@ func (db *Database) Push(key, value string) error {
 
 	// Initialize the list if it doesn't exist
 	if _, exists := db.lists[key]; !exists {
-		db.lists[key] = []string{}
+		db.lists[key] = NewList()
 	}
 
-	// Append the value to the list
-	db.lists[key] = append(db.lists[key], value)
+	// Add the value to the left of the list
+	db.lists[key].LPush(value)
 	return nil
 }
 
-// Lpop removes and returns the item from the left of the list
-func (db *Database) Lpop(key string) (string, error) {
+// RPush adds an item to the right of the list
+func (db *Database) Push(key string, value interface{}) error {
 	if key == "" {
-		return "", errors.New("key cannot be empty")
+		return errors.New("key cannot be empty")
 	}
 
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	list, exists := db.lists[key]
-	if !exists {
-		return "", errors.New("list does not exist")
+	// Initialize the list if it doesn't exist
+	if _, exists := db.lists[key]; !exists {
+		db.lists[key] = NewList()
 	}
 
-	if len(list) == 0 {
-		return "", errors.New("list is empty")
-	}
-
-	// Retrieve and remove the first element
-	value := list[0]
-	db.lists[key] = list[1:]
-
-	return value, nil
+	// Add the value to the right of the list
+	db.lists[key].RPush(value)
+	return nil
 }
 
-// Rpop removes and returns the item from the right of the list
-func (db *Database) Rpop(key string) (string, error) {
+// LPop removes and returns the item from the left of the list
+func (db *Database) Lpop(key string) (interface{}, error) {
 	if key == "" {
-		return "", errors.New("key cannot be empty")
+		return nil, errors.New("key cannot be empty")
 	}
 
 	db.mu.Lock()
@@ -138,18 +132,46 @@ func (db *Database) Rpop(key string) (string, error) {
 
 	list, exists := db.lists[key]
 	if !exists {
-		return "", errors.New("list does not exist")
+		return nil, errors.New("list does not exist")
 	}
 
-	if len(list) == 0 {
-		return "", errors.New("list is empty")
+	// Remove and return the leftmost value
+	return list.LPop()
+}
+
+// RPop removes and returns the item from the right of the list
+func (db *Database) Rpop(key string) (interface{}, error) {
+	if key == "" {
+		return nil, errors.New("key cannot be empty")
 	}
 
-	// Retrieve and remove the last element
-	value := list[len(list)-1]
-	db.lists[key] = list[:len(list)-1]
+	db.mu.Lock()
+	defer db.mu.Unlock()
 
-	return value, nil
+	list, exists := db.lists[key]
+	if !exists {
+		return nil, errors.New("list does not exist")
+	}
+
+	// Remove and return the rightmost value
+	return list.RPop()
+}
+
+// Len returns the length of a list
+func (db *Database) Len(key string) (int, error) {
+	if key == "" {
+		return 0, errors.New("key cannot be empty")
+	}
+
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	list, exists := db.lists[key]
+	if !exists {
+		return 0, errors.New("list does not exist")
+	}
+
+	return list.Len(), nil
 }
 
 // StartCleanup starts a background goroutine to clean up expired keys
