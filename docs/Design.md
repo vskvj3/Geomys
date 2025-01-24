@@ -108,6 +108,16 @@ server returns a messagepack with `value` set to new value upon completion.
     - Don't use normal lists and list slicing, since it introduces additional memory overhead.
     - Slicing method will also introduce time related overhead when coming to pop operations.
     - Go collections have their own queue and stack implementation, can we modify the internal implementation and use that for our queue/stack?
+
+#### Internal Implementaion of stack/queue
+- Since we considered to develop both stack and queue in a single structure.
+- The structure will act similar to dequeue.
+- The application should be optimized for:
+    - Insert at front: O(1)
+    - Insert at rear: O(1)
+    - Delete from front: O(1)
+    - Delete from rear: O(1)
+
 ## Collision behaviour
 This part explains the behaviour of basic set command:
 - If key already exists
