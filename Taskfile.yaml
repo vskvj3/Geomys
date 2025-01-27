@@ -32,8 +32,8 @@ tasks:
   build:
     desc: "Build both server and client binaries"
     cmds:
-      - "task: build-server"
-      - "task: build-client"
+      - "task build-server"
+      - "task build-client"
 
   clean:
     desc: "Clean the build directory"
@@ -74,5 +74,5 @@ tasks:
   default:
     desc: "Default task to build and test the project"
     cmds:
-      - "task: build"
-      - "task: test"
+      - "task test"
+      - "task build"
