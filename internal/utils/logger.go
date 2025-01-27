@@ -40,7 +40,6 @@ func getDefaultLogFilePath() string {
 	if err := os.MkdirAll(logDir, 0755); err != nil {
 		log.Fatalf("Failed to create log directory: %v", err)
 	}
-	fmt.Println(logDir)
 	return filepath.Join(logDir, "server.log")
 }
 
@@ -50,7 +49,7 @@ func NewLogger(logFilePath string, debugMode bool) *Logger {
 		if logFilePath == "" {
 			logFilePath = getDefaultLogFilePath()
 		}
-		fmt.Println(logFilePath)
+		fmt.Println("Starting logs in ", logFilePath)
 
 		// Open the log file
 		file, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
