@@ -1,6 +1,6 @@
 module github.com/vskvj3/geomys
 
-go 1.23.4
+go 1.23
 
 require (
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect

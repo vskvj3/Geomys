@@ -1,5 +1,5 @@
 # Use an official lightweight Go image as the base
-FROM golang:1.20-alpine as builder
+FROM golang:1.23-alpine AS builder
 
 # Set working directory
 WORKDIR /app
@@ -14,7 +14,8 @@ RUN go mod download
 COPY . .
 
 # Build the server executable
-RUN go build -o server ./cmd/server/main.go
+RUN go version
+RUN go build -v -o server ./cmd/server/main.go
 
 # Build the client executable (optional)
 # RUN go build -o client ./cmd/client/main.go

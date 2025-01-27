@@ -59,17 +59,17 @@ tasks:
   docker-build:
     desc: "Build Docker image"
     cmds:
-      - "docker build -t {{APP_NAME}}:latest ."
+      - "docker --debug build -t $APP_NAME:latest ."
 
   docker-run:
     desc: "Run the Docker container"
     cmds:
-      - "docker run -it --rm -p 8080:8080 {{APP_NAME}}:latest"
+      - "docker run -it --rm -p 6379:6379 $APP_NAME:latest"
 
   docker-clean:
     desc: "Remove Docker images"
     cmds:
-      - "docker rmi -f $(docker images -q {{APP_NAME}}:latest)"
+      - "docker rmi -f $(docker images -q $APP_NAME:latest)"
 
   default:
     desc: "Default task to build and test the project"
