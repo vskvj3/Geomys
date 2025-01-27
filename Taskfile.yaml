@@ -1,0 +1,67 @@
+version: '3'
+
+vars:
+  APP_NAME: geomys
+  SERVER_DIR: ./cmd/server
+  CLIENT_DIR: ./cmd/client
+  BUILD_DIR: ./build
+  GO_FILES: "{{shell `find . -type f -name '*.go' -not -path './vendor/*'`}}"
+  GO_FLAGS: "-ldflags \"-s -w\""
+
+tasks:
+  build-server:
+    desc: "Build the server binary"
+    cmds:
+      - "go build {{GO_FLAGS}} -o {{BUILD_DIR}}/{{APP_NAME}}-server {{SERVER_DIR}}"
+
+  build-client:
+    desc: "Build the client binary"
+    cmds:
+      - "go build {{GO_FLAGS}} -o {{BUILD_DIR}}/{{APP_NAME}}-client {{CLIENT_DIR}}"
+
+  build:
+    desc: "Build both server and client binaries"
+    cmds:
+      - "task: build-server"
+      - "task: build-client"
+
+  clean:
+    desc: "Clean the build directory"
+    cmds:
+      - "rm -rf {{BUILD_DIR}}"
+
+  lint:
+    desc: "Run Go lint on the project"
+    cmds:
+      - "golangci-lint run"
+
+  fmt:
+    desc: "Format the Go source files"
+    cmds:
+      - "go fmt ./..."
+
+  test:
+    desc: "Run all tests"
+    cmds:
+      - "go test ./..."
+
+  docker-build:
+    desc: "Build Docker image"
+    cmds:
+      - "docker build -t {{APP_NAME}}:latest ."
+
+  docker-run:
+    desc: "Run the Docker container"
+    cmds:
+      - "docker run -it --rm -p 8080:8080 {{APP_NAME}}:latest"
+
+  docker-clean:
+    desc: "Remove Docker images"
+    cmds:
+      - "docker rmi -f $(docker images -q {{APP_NAME}}:latest)"
+
+  default:
+    desc: "Default task to build and test the project"
+    cmds:
+      - "task: build"
+      - "task: test"
