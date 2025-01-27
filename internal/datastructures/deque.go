@@ -1,3 +1,7 @@
+/*
+This file only exists as a reference
+- Currently using list(Doubly Linked list) can be found as /core/list.go
+*/
 package datastructures
 
 import (
