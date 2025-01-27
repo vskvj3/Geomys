@@ -126,17 +126,24 @@ This part explains the behaviour of basic set command:
     - creates a new key and saves the value
 
 ## Persistance
-- We plans to use two types of persistance
-1. Snapshots
-2. WTD: Write Through Disk
-### Snapshots
-- State of the current in-memory database copied to disk at regular intervals
-- intervals can be defined on the config file or by using the `CONFIG` command. [TODO]
-- Some data may be lost between snapshots
-- Only prefered in cases speed > realiability
+1. Write Through Disk
+2. Buffered Writes
+
 ### Write Through Disk
-- Every write operation to the cache is immediately written to the persistent storage
-- It has significate write overhead and should only be used in cases where reliability > latency
+- Every write operation to the cache is immediately written to the persistent storage.
+- It has significate write overhead..
+- Highest I/O overhead and slower command execution.
+- More reliable than Buffered Writes.
+### Buffered Writes
+- Faster command execution.
+- Data is grouped into batches and written on regular intervals.
+- Data loss may occure if the data is written after last write.
+- Preferable in situations where some data loss is not as inconvicience and latency is more important.
+> Both of these persistence methodes currently uses a append only file to store the data.
+- It is possible to only one of these persitence mechanism at a time. 
+- By default no persistence is enabled, it has to be enabled by using config file[More on this will be clarified later]
+
+
 
 ### Upcoming Considerations:
 - Blocking and non  blocking commands
