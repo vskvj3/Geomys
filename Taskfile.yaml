@@ -1,23 +1,33 @@
 version: '3'
 
-vars:
+env:
   APP_NAME: geomys
   SERVER_DIR: ./cmd/server
   CLIENT_DIR: ./cmd/client
   BUILD_DIR: ./build
-  GO_FILES: "{{shell `find . -type f -name '*.go' -not -path './vendor/*'`}}"
-  GO_FLAGS: "-ldflags \"-s -w\""
+  # GO_FILES: "{{shell `find . -type f -name '*.go' -not -path './vendor/*'`}}"
+  GO_FLAGS: ""
 
 tasks:
+  server:
+    desc: "Run the server gofile directly"
+    cmds:
+      - "go.exe run ./cmd/server/main.go"
+
+  client:
+    desc: "Run the client gofile directly"
+    cmds:
+      - "go.exe run ./cmd/client/main.go"
+
   build-server:
     desc: "Build the server binary"
     cmds:
-      - "go build {{GO_FLAGS}} -o {{BUILD_DIR}}/{{APP_NAME}}-server {{SERVER_DIR}}"
+      - "go build $GO_FLAGS -o $BUILD_DIR/$APP_NAME-server.exe $SERVER_DIR"
 
   build-client:
     desc: "Build the client binary"
     cmds:
-      - "go build {{GO_FLAGS}} -o {{BUILD_DIR}}/{{APP_NAME}}-client {{CLIENT_DIR}}"
+      - "go build $GO_FLAGS -o $BUILD_DIR/$APP_NAME-client.exe $CLIENT_DIR"
 
   build:
     desc: "Build both server and client binaries"
@@ -28,7 +38,7 @@ tasks:
   clean:
     desc: "Clean the build directory"
     cmds:
-      - "rm -rf {{BUILD_DIR}}"
+      - "rm -rf $BUILD_DIR"
 
   lint:
     desc: "Run Go lint on the project"
@@ -43,7 +53,8 @@ tasks:
   test:
     desc: "Run all tests"
     cmds:
-      - "go test ./..."
+      - "go test ./tests/integration/"
+      - "go test ./tests/unit/"
 
   docker-build:
     desc: "Build Docker image"
