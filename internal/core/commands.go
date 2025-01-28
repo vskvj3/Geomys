@@ -195,7 +195,7 @@ func (h *CommandHandler) HandleCommand(conn net.Conn, request map[string]interfa
 
 // sendResponse serializes the response and sends it to the client
 func (h *CommandHandler) sendResponse(conn net.Conn, response map[string]interface{}) {
-	logger := utils.NewLogger("", true)
+	logger := utils.GetLogger()
 
 	data, err := msgpack.Marshal(response)
 	if err != nil {
