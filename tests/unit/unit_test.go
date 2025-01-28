@@ -5,17 +5,21 @@ import (
 	"time"
 
 	"github.com/vskvj3/geomys/internal/core"
+	"github.com/vskvj3/geomys/internal/persistence"
 )
 
 func TestCoreCommands(t *testing.T) {
-	db := core.NewDatabase()
+	persistence, _ := persistence.NewPersistence("writethroughdisk")
+
+	// start database
+	db := core.NewDatabase(persistence)
 	db.StartCleanup(100 * time.Millisecond)
 
 	// Test SET
 	t.Run("SET command", func(t *testing.T) {
 		err := db.Set("key1", "value1", 100)
 		if err != nil {
-			t.Errorf("expected no error, got %v", err)
+			t.Errorf("expected no error, got %v", err.Error())
 		}
 	})
 
