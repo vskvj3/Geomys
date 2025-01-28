@@ -3,28 +3,33 @@ package core
 import (
 	"errors"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
+
+	"github.com/vskvj3/geomys/internal/persistence"
 )
 
 type Database struct {
-	mu     sync.Mutex
-	store  map[string]string
-	expiry map[string]int64 // When the key expires
-	lists  map[string]*List // Key-list mappings using the new List type
+	mu          sync.Mutex
+	store       map[string]string
+	expiry      map[string]int64
+	lists       map[string]*List
+	persistence *persistence.Persistence
 }
 
 // Create a new database instance
-func NewDatabase() *Database {
+func NewDatabase(persistence *persistence.Persistence) *Database {
 	return &Database{
-		store:  make(map[string]string),
-		expiry: make(map[string]int64),
-		lists:  make(map[string]*List),
+		store:       make(map[string]string),
+		expiry:      make(map[string]int64),
+		lists:       make(map[string]*List),
+		persistence: persistence,
 	}
 }
 
 // Set stores a key-value pair in the database
-func (db *Database) Set(key, value string, ttlMs int64) error {
+func (db *Database) Set(key string, value string, ttlMs int64) error {
 	if key == "" {
 		return errors.New("key cannot be empty")
 	}
@@ -38,6 +43,12 @@ func (db *Database) Set(key, value string, ttlMs int64) error {
 	db.store[key] = value
 	if ttlMs > 0 {
 		db.expiry[key] = time.Now().UnixMilli() + ttlMs
+	}
+
+	// Log the operation
+	operation := "SET " + key + " " + value + " " + strconv.FormatInt(ttlMs, 10)
+	if err := db.persistence.LogOperation(operation); err != nil {
+		return err
 	}
 	return nil
 }
@@ -191,4 +202,31 @@ func (db *Database) StartCleanup(interval time.Duration) {
 			db.mu.Unlock()
 		}
 	}()
+}
+
+func (db *Database) RebuildFromPersistence() error {
+	operations, err := db.persistence.LoadOperations()
+	if err != nil {
+		return err
+	}
+
+	for _, op := range operations {
+		parts := strings.Split(op, " ")
+		if len(parts) < 2 {
+			continue
+		}
+
+		command := parts[0]
+		switch command {
+		case "SET":
+			if len(parts) >= 4 {
+				key := parts[1]
+				value := parts[2]
+				ttlMs, _ := strconv.ParseInt(parts[3], 10, 64)
+				db.Set(key, value, ttlMs)
+			}
+			// Add cases for other commands (INCR, LPush, etc.)
+		}
+	}
+	return nil
 }
