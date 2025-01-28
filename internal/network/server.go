@@ -8,7 +8,6 @@ import (
 
 	"github.com/vmihailenco/msgpack/v5"
 	"github.com/vskvj3/geomys/internal/core"
-	"github.com/vskvj3/geomys/internal/persistence"
 	"github.com/vskvj3/geomys/internal/utils"
 )
 
@@ -18,21 +17,21 @@ type Server struct {
 
 func NewServer(persistencetype string) *Server {
 	// create persistence object
-	logger := utils.GetLogger()
-	persistence, err := persistence.NewPersistence(persistencetype)
-	if err != nil {
-		logger.Error("Persistence creation failed: " + err.Error())
-	}
+	// logger := utils.GetLogger()
+	// persistence, err := persistence.NewPersistence(persistencetype)
+	// if err != nil {
+	// 	logger.Error("Persistence creation failed: " + err.Error())
+	// }
 
 	// start database
-	db := core.NewDatabase(persistence)
+	db := core.NewDatabase()
 
 	// rebuild from persistence if it exists
-	if err := db.RebuildFromPersistence(); err != nil {
-		logger.Warn("Could not read from persistence: " + err.Error())
-	} else {
-		logger.Info("Loaded data from persistence")
-	}
+	// if err := db.RebuildFromPersistence(); err != nil {
+	// 	logger.Warn("Could not read from persistence: " + err.Error())
+	// } else {
+	// 	logger.Info("Loaded data from persistence")
+	// }
 
 	// start database cleanup (to remove expired keys)
 	db.StartCleanup(100 * time.Millisecond)

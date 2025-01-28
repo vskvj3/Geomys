@@ -1,36 +1,52 @@
 package persistence
 
 import (
-	"bufio"
+	"encoding/gob"
 	"os"
 	"path/filepath"
 )
 
+// Operation represents an event that occurs in the database.
+type Operation struct {
+	Command string
+	Key     string      // Key involved in the operation.
+	Value   string      // Value associated with the key.
+	Lvalue  interface{} // List value item.
+	TTL     int64       // Time-to-live in milliseconds.
+	OffSet  int         // Offset for the INCR command.
+}
+
 // Persistence handles the append-only log for the database.
 type Persistence struct {
 	file *os.File
+	enc  *gob.Encoder
+	dec  *gob.Decoder
 }
 
 // NewPersistence creates a new persistence instance.
-func NewPersistence(persistencetype string) (*Persistence, error) {
-	homeDir, _ := os.UserHomeDir()
+func NewPersistence(persistenceType string) (*Persistence, error) {
+	// Register the Operation type to avoid "Duplicate Types Received" errors.
+	gob.Register(Operation{})
 
+	homeDir, _ := os.UserHomeDir()
 	persistenceDir := filepath.Join(homeDir, ".geomys", "persistence.db")
+
 	// Open the file in append mode, create it if it doesn't exist.
 	file, err := os.OpenFile(persistenceDir, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Persistence{file: file}, nil
+	return &Persistence{
+		file: file,
+		enc:  gob.NewEncoder(file),
+		dec:  gob.NewDecoder(file),
+	}, nil
 }
 
 // LogOperation writes an operation to the append-only file.
-func (p *Persistence) LogOperation(operation string) error {
-	if _, err := p.file.WriteString(operation + "\n"); err != nil {
-		return err
-	}
-	return nil
+func (p *Persistence) LogOperation(op Operation) error {
+	return p.enc.Encode(op) // Encode operation as binary.
 }
 
 // Close closes the persistence file.
@@ -39,20 +55,28 @@ func (p *Persistence) Close() error {
 }
 
 // LoadOperations reads the append-only log and returns the operations.
-func (p *Persistence) LoadOperations() ([]string, error) {
+func (p *Persistence) LoadOperations() ([]Operation, error) {
+	// Register the Operation type before decoding.
+	gob.Register(Operation{})
+
 	file, err := os.Open(p.file.Name())
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	var operations []string
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		operations = append(operations, scanner.Text())
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, err
+	var operations []Operation
+	decoder := gob.NewDecoder(file)
+	for {
+		var op Operation
+		err := decoder.Decode(&op)
+		if err != nil {
+			if err.Error() == "EOF" {
+				break
+			}
+			return nil, err
+		}
+		operations = append(operations, op)
 	}
 	return operations, nil
 }

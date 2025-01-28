@@ -3,28 +3,23 @@ package core
 import (
 	"errors"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
-
-	"github.com/vskvj3/geomys/internal/persistence"
 )
 
 type Database struct {
-	mu          sync.Mutex
-	store       map[string]string
-	expiry      map[string]int64
-	lists       map[string]*List
-	persistence *persistence.Persistence
+	mu     sync.Mutex
+	store  map[string]string
+	expiry map[string]int64
+	lists  map[string]*List
 }
 
 // Create a new database instance
-func NewDatabase(persistence *persistence.Persistence) *Database {
+func NewDatabase() *Database {
 	return &Database{
-		store:       make(map[string]string),
-		expiry:      make(map[string]int64),
-		lists:       make(map[string]*List),
-		persistence: persistence,
+		store:  make(map[string]string),
+		expiry: make(map[string]int64),
+		lists:  make(map[string]*List),
 	}
 }
 
@@ -45,11 +40,6 @@ func (db *Database) Set(key string, value string, ttlMs int64) error {
 		db.expiry[key] = time.Now().UnixMilli() + ttlMs
 	}
 
-	// Log the operation
-	operation := "SET " + key + " " + value + " " + strconv.FormatInt(ttlMs, 10)
-	if err := db.persistence.LogOperation(operation); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -146,8 +136,13 @@ func (db *Database) Lpop(key string) (interface{}, error) {
 		return nil, errors.New("list does not exist")
 	}
 
-	// Remove and return the leftmost value
-	return list.LPop()
+	leftValue, err := list.LPop()
+	if err != nil {
+		return 0, err
+	}
+
+	// return the leftmost value
+	return leftValue, nil
 }
 
 // RPop removes and returns the item from the right of the list
@@ -164,8 +159,13 @@ func (db *Database) Rpop(key string) (interface{}, error) {
 		return nil, errors.New("list does not exist")
 	}
 
-	// Remove and return the rightmost value
-	return list.RPop()
+	rightValue, err := list.RPop()
+	if err != nil {
+		return 0, err
+	}
+
+	// return the rightmost value
+	return rightValue, nil
 }
 
 // Len returns the length of a list
@@ -204,29 +204,35 @@ func (db *Database) StartCleanup(interval time.Duration) {
 	}()
 }
 
-func (db *Database) RebuildFromPersistence() error {
-	operations, err := db.persistence.LoadOperations()
-	if err != nil {
-		return err
-	}
+// func (db *Database) RebuildFromPersistence() error {
+// 	// Load operations from persistence as structured data
+// 	operations, err := db.persistence.LoadOperations()
+// 	if err != nil {
+// 		return err
+// 	}
 
-	for _, op := range operations {
-		parts := strings.Split(op, " ")
-		if len(parts) < 2 {
-			continue
-		}
-
-		command := parts[0]
-		switch command {
-		case "SET":
-			if len(parts) >= 4 {
-				key := parts[1]
-				value := parts[2]
-				ttlMs, _ := strconv.ParseInt(parts[3], 10, 64)
-				db.Set(key, value, ttlMs)
-			}
-			// Add cases for other commands (INCR, LPush, etc.)
-		}
-	}
-	return nil
-}
+// 	// Process each operation
+// 	for _, op := range operations {
+// 		switch op.Command {
+// 		case "SET":
+// 			// Rebuild the database state for the SET command
+// 			db.Set(op.Key, op.Value, op.TTL)
+// 		case "INCR":
+// 			// Rebuild the database state for the SET command
+// 			db.Incr(op.Key, op.OffSet)
+// 		case "PUSH":
+// 			// Rebuild the database state for the SET command
+// 			db.Push(op.Key, op.Lvalue)
+// 		case "RPOP":
+// 			// Rebuild the database state for the SET command
+// 			db.Rpop(op.Key)
+// 		case "LPOP":
+// 			// Rebuild the database state for the SET command
+// 			db.Lpop(op.Key)
+// 		default:
+// 			// Log or handle unknown commands as needed
+// 			continue
+// 		}
+// 	}
+// 	return nil
+// }

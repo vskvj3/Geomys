@@ -5,14 +5,12 @@ import (
 	"time"
 
 	"github.com/vskvj3/geomys/internal/core"
-	"github.com/vskvj3/geomys/internal/persistence"
 )
 
 func TestCoreCommands(t *testing.T) {
-	persistence, _ := persistence.NewPersistence("writethroughdisk")
 
 	// start database
-	db := core.NewDatabase(persistence)
+	db := core.NewDatabase()
 	db.StartCleanup(100 * time.Millisecond)
 
 	// Test SET

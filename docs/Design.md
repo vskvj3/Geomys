@@ -128,12 +128,46 @@ This part explains the behaviour of basic set command:
 ## Persistance
 1. Write Through Disk
 2. Buffered Writes
+- Persisted databases are by default stored at `HOME:/.geomys/persistance.db`
+- Commands are stored after binary encoding.
 
 ### Write Through Disk
 - Every write operation to the cache is immediately written to the persistent storage.
 - It has significate write overhead..
 - Highest I/O overhead and slower command execution.
 - More reliable than Buffered Writes.
+- Commands are stored in an append-only-file when each command is run.
+- Those commands are replayed at the time the server restarts to restore the database.
+Considerations:
+```
+SET key 1
+SET key 4
+INCR key 8
+INCR key 10
+PUSH list 10
+PUSH list 11
+PUSH list 12
+RPOP list
+LPOP list
+```
+- For ease of handling, instead of storing the opearations as strings, it would be optimal to store the operations as binary objects into the append only file.
+- each file could look like this:
+```js
+{
+    timestamp datetime
+	Command string 
+	Key     string 
+	Value   string
+}
+```
+- The operations need to be logged are:
+    - SET key value exp
+    - INCR key offset
+    - EXPR key (When keys expires) 
+    - PUSH key value
+    - RPOP key
+    - LPOP key
+- We can store and rebuild this commands similar to how we handle the requests and responses.
 ### Buffered Writes
 - Faster command execution.
 - Data is grouped into batches and written on regular intervals.
