@@ -7,10 +7,11 @@ import (
 )
 
 type Config struct {
-	Port          int  `json:"port"`                // Server port
-	DefaultExpiry int  `json:"default_expiry"`      // Default expiration time in milliseconds
-	Replication   bool `json:"replication_enabled"` // Enable/disable replication
-	Sharding      bool `json:"sharding_enabled"`    // Enable/disable sharding
+	Port          int    `json:"port"`                // Server port
+	DefaultExpiry int    `json:"default_expiry"`      // Default expiration time in milliseconds
+	Persistence   string `json:"persistence"`         // Peristence Mechanism
+	Replication   bool   `json:"replication_enabled"` // Enable/disable replication
+	Sharding      bool   `json:"sharding_enabled"`    // Enable/disable sharding
 }
 
 // LoadConfig reads the configuration from the given file
@@ -41,6 +42,7 @@ func getDefaultConfig() *Config {
 	return &Config{
 		Port:          6379,
 		DefaultExpiry: 60000, // 60 seconds
+		Persistence:   "bufferedwrite",
 		Replication:   false,
 		Sharding:      false,
 	}
@@ -53,5 +55,8 @@ func applyDefaults(config *Config) {
 	}
 	if config.DefaultExpiry == 0 {
 		config.DefaultExpiry = 60000 // 60 seconds
+	}
+	if config.Persistence != "writethroughdisk" && config.Persistence != "bufferedwrite" {
+		config.Persistence = "writethroughdisk"
 	}
 }
