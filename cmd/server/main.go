@@ -31,7 +31,6 @@ func main() {
 
 	// Attempt to bind to the configured port
 	port := strconv.Itoa(config.Port)
-	persistencetype := config.Persistence
 	listener, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		logger.Warn("Port " + port + " unavailable. Selecting a random port...\n")
@@ -44,6 +43,9 @@ func main() {
 
 	defer listener.Close()
 	logger.Info("Server is listening on " + listener.Addr().String())
+
+	persistencetype := config.Persistence
+	logger.Info("Persistence Type Detected: " + persistencetype)
 
 	server := network.NewServer(persistencetype)
 	for {
