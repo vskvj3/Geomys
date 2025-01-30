@@ -2,9 +2,12 @@ package core
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/vskvj3/geomys/internal/persistence"
 )
 
 type Database struct {
@@ -204,35 +207,36 @@ func (db *Database) StartCleanup(interval time.Duration) {
 	}()
 }
 
-// func (db *Database) RebuildFromPersistence() error {
-// 	// Load operations from persistence as structured data
-// 	operations, err := db.persistence.LoadOperations()
-// 	if err != nil {
-// 		return err
-// 	}
+// rebuild database at the run time
+func (db *Database) RebuildFromPersistence() error {
+	// Load stored requests
+	disk, err := persistence.CreateOrReplacePersistence()
+	if err != nil {
+		return err
+	}
+	requests, err := disk.LoadRequests()
+	if err != nil {
+		return err
+	}
+	fmt.Println("requests", requests)
 
-// 	// Process each operation
-// 	for _, op := range operations {
-// 		switch op.Command {
-// 		case "SET":
-// 			// Rebuild the database state for the SET command
-// 			db.Set(op.Key, op.Value, op.TTL)
-// 		case "INCR":
-// 			// Rebuild the database state for the SET command
-// 			db.Incr(op.Key, op.OffSet)
-// 		case "PUSH":
-// 			// Rebuild the database state for the SET command
-// 			db.Push(op.Key, op.Lvalue)
-// 		case "RPOP":
-// 			// Rebuild the database state for the SET command
-// 			db.Rpop(op.Key)
-// 		case "LPOP":
-// 			// Rebuild the database state for the SET command
-// 			db.Lpop(op.Key)
-// 		default:
-// 			// Log or handle unknown commands as needed
-// 			continue
-// 		}
-// 	}
-// 	return nil
-// }
+	// Replay each request using correct database function
+	for _, req := range requests {
+		switch req["command"] {
+		case "SET":
+			db.Set(req["key"].(string), req["value"].(string), 0) // Assuming no TTL
+		case "INCR":
+			db.Incr(req["key"].(string), int(req["offset"].(int64)))
+		case "PUSH":
+			db.Push(req["key"].(string), req["value"])
+		case "RPOP":
+			db.Rpop(req["key"].(string))
+		case "LPOP":
+			db.Lpop(req["key"].(string))
+		default:
+			continue
+		}
+	}
+
+	return nil
+}

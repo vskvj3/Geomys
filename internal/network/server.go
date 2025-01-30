@@ -15,15 +15,7 @@ type Server struct {
 	CommandHandler *core.CommandHandler
 }
 
-func NewServer(persistencetype string) *Server {
-	// create persistence object
-	// logger := utils.GetLogger()
-	// persistence, err := persistence.NewPersistence(persistencetype)
-	// if err != nil {
-	// 	logger.Error("Persistence creation failed: " + err.Error())
-	// }
-
-	// start database
+func NewServer() (*Server, error) {
 	db := core.NewDatabase()
 
 	// rebuild from persistence if it exists
@@ -37,7 +29,7 @@ func NewServer(persistencetype string) *Server {
 	db.StartCleanup(100 * time.Millisecond)
 
 	handler := core.NewCommandHandler(db)
-	return &Server{CommandHandler: handler}
+	return &Server{CommandHandler: handler}, nil
 }
 
 func (s *Server) HandleConnection(conn net.Conn) {
