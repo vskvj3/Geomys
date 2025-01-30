@@ -17,13 +17,14 @@ type Server struct {
 
 func NewServer() (*Server, error) {
 	db := core.NewDatabase()
+	logger := utils.GetLogger()
 
-	// rebuild from persistence if it exists
-	// if err := db.RebuildFromPersistence(); err != nil {
-	// 	logger.Warn("Could not read from persistence: " + err.Error())
-	// } else {
-	// 	logger.Info("Loaded data from persistence")
-	// }
+	//rebuild from persistence if it exists
+	if err := db.RebuildFromPersistence(); err != nil {
+		logger.Warn("Could not read from persistence: " + err.Error())
+	} else {
+		logger.Info("Loaded data from persistence")
+	}
 
 	// start database cleanup (to remove expired keys)
 	db.StartCleanup(100 * time.Millisecond)

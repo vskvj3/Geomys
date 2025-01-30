@@ -81,14 +81,13 @@ func (p *Persistence) LogRequest(req map[string]interface{}) error {
 		binary.Write(buf, binary.LittleEndian, int32(0)) // No value
 	}
 
-	// Write offset exists flag (1 byte)
-	offset, offsetExists := req["offset"].(int64)
+	// Write value length and value (if present)
+	offset, offsetExists := req["offset"].(string)
 	if offsetExists {
-		buf.WriteByte(1) // Flag: Offset exists
-		binary.Write(buf, binary.LittleEndian, offset)
+		binary.Write(buf, binary.LittleEndian, int32(len(offset)))
+		buf.WriteString(offset)
 	} else {
-		buf.WriteByte(0)                                 // Flag: No offset
-		binary.Write(buf, binary.LittleEndian, int64(0)) // Zero offset
+		binary.Write(buf, binary.LittleEndian, int32(0)) // No value
 	}
 
 	// Write End Marker (4 bytes "EOF\0")
@@ -152,19 +151,20 @@ func (p *Persistence) LoadRequests() ([]map[string]interface{}, error) {
 			value = string(valBuf)
 		}
 
-		// Read offset exists flag (1 byte)
-		if _, err := p.file.Read(buf[:1]); err != nil {
+		// Read offset length
+		if _, err := p.file.Read(buf[:4]); err != nil {
 			break
 		}
-		offsetExists := buf[0] == 1
+		offsetLen := binary.LittleEndian.Uint32(buf[:4])
 
-		// Read offset (if exists)
-		var offset int64 = 0
-		if _, err := p.file.Read(buf[:8]); err != nil {
-			break
-		}
-		if offsetExists {
-			offset = int64(binary.LittleEndian.Uint64(buf[:8]))
+		// Read offset (if present)
+		var offset string
+		if offsetLen > 0 {
+			offsetBuf := make([]byte, offsetLen)
+			if _, err := p.file.Read(offsetBuf); err != nil {
+				break
+			}
+			offset = string(offsetBuf)
 		}
 
 		// Read end marker (4 bytes)
@@ -181,7 +181,7 @@ func (p *Persistence) LoadRequests() ([]map[string]interface{}, error) {
 		if value != "" {
 			req["value"] = value
 		}
-		if offsetExists {
+		if offset != "" {
 			req["offset"] = offset
 		}
 

@@ -22,6 +22,10 @@ func NewCommandHandler(db *Database) *CommandHandler {
 
 // HandleCommand processes client commands and sends appropriate responses
 func (h *CommandHandler) HandleCommand(conn net.Conn, request map[string]interface{}) {
+	disk, err := persistence.CreateOrReplacePersistence()
+	if err != nil {
+		h.sendError(conn, "Could not access disk")
+	}
 	// Process the command
 	command, ok := request["command"].(string)
 	if !ok {
@@ -45,6 +49,9 @@ func (h *CommandHandler) HandleCommand(conn net.Conn, request map[string]interfa
 		response = map[string]interface{}{"status": "OK", "message": message}
 
 	case "SET":
+		if err := disk.LogRequest(request); err != nil {
+			h.sendError(conn, "Reuest logging to disk failed")
+		}
 
 		key, keyOk := request["key"].(string)
 		value, valueOk := request["value"].(string)
@@ -102,6 +109,9 @@ func (h *CommandHandler) HandleCommand(conn net.Conn, request map[string]interfa
 		}
 
 	case "INCR":
+		if err := disk.LogRequest(request); err != nil {
+			h.sendError(conn, "Reuest logging to disk failed")
+		}
 
 		key, keyOk := request["key"].(string)
 		offset, offsetOk := request["offset"].(string) // JSON numbers are unmarshaled as float64
@@ -136,6 +146,9 @@ func (h *CommandHandler) HandleCommand(conn net.Conn, request map[string]interfa
 		}
 
 	case "PUSH":
+		if err := disk.LogRequest(request); err != nil {
+			h.sendError(conn, "Reuest logging to disk failed")
+		}
 
 		key, keyOk := request["key"].(string)
 		value, valueOk := request["value"].(string)
@@ -152,6 +165,9 @@ func (h *CommandHandler) HandleCommand(conn net.Conn, request map[string]interfa
 		response = map[string]interface{}{"status": "OK"}
 
 	case "LPOP":
+		if err := disk.LogRequest(request); err != nil {
+			h.sendError(conn, "Reuest logging to disk failed")
+		}
 
 		key, ok := request["key"].(string)
 		if !ok {
@@ -172,6 +188,9 @@ func (h *CommandHandler) HandleCommand(conn net.Conn, request map[string]interfa
 		}
 
 	case "RPOP":
+		if err := disk.LogRequest(request); err != nil {
+			h.sendError(conn, "Reuest logging to disk failed")
+		}
 
 		key, ok := request["key"].(string)
 		if !ok {

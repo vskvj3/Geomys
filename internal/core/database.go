@@ -226,7 +226,13 @@ func (db *Database) RebuildFromPersistence() error {
 		case "SET":
 			db.Set(req["key"].(string), req["value"].(string), 0) // Assuming no TTL
 		case "INCR":
-			db.Incr(req["key"].(string), int(req["offset"].(int64)))
+			key := req["key"].(string)
+			offset, err := strconv.Atoi(req["offset"].(string))
+			if err != nil {
+				fmt.Println("Offset conversion failed in databse rebuild")
+				break
+			}
+			db.Incr(key, offset)
 		case "PUSH":
 			db.Push(req["key"].(string), req["value"])
 		case "RPOP":
