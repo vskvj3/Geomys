@@ -15,11 +15,12 @@ type Server struct {
 	CommandHandler *core.CommandHandler
 }
 
-func NewServer() *Server {
+func NewServer() (*Server, error) {
 	db := core.NewDatabase()
 	db.StartCleanup(100 * time.Millisecond)
+
 	handler := core.NewCommandHandler(db)
-	return &Server{CommandHandler: handler}
+	return &Server{CommandHandler: handler}, nil
 }
 
 func (s *Server) HandleConnection(conn net.Conn) {

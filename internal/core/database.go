@@ -2,9 +2,12 @@ package core
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/vskvj3/geomys/internal/persistence"
 )
 
 type Database struct {
@@ -191,4 +194,38 @@ func (db *Database) StartCleanup(interval time.Duration) {
 			db.mu.Unlock()
 		}
 	}()
+}
+
+// rebuild database at the run time
+func (db *Database) RebuildFromPersistence() error {
+	// Load stored requests
+	disk, err := persistence.CreateOrReplacePersistence()
+	if err != nil {
+		return err
+	}
+	requests, err := disk.LoadRequests()
+	if err != nil {
+		return err
+	}
+	fmt.Println("requests", requests)
+
+	// Replay each request using correct database function
+	for _, req := range requests {
+		switch req["command"] {
+		case "SET":
+			db.Set(req["key"].(string), req["value"].(string), 0) // Assuming no TTL
+		case "INCR":
+			db.Incr(req["key"].(string), int(req["offset"].(int64)))
+		case "PUSH":
+			db.Push(req["key"].(string), req["value"])
+		case "RPOP":
+			db.Rpop(req["key"].(string))
+		case "LPOP":
+			db.Lpop(req["key"].(string))
+		default:
+			continue
+		}
+	}
+
+	return nil
 }

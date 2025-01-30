@@ -44,7 +44,10 @@ func main() {
 	defer listener.Close()
 	logger.Info("Server is listening on " + listener.Addr().String())
 
-	server := network.NewServer()
+	server, err := network.NewServer()
+	if err != nil {
+		logger.Error("Server creation failed" + err.Error())
+	}
 	for {
 		conn, err := listener.Accept()
 		if err != nil {

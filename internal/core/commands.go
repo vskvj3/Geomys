@@ -6,11 +6,13 @@ import (
 	"strings"
 
 	"github.com/vmihailenco/msgpack/v5"
+	"github.com/vskvj3/geomys/internal/persistence"
 	"github.com/vskvj3/geomys/internal/utils"
 )
 
 type CommandHandler struct {
-	Database *Database
+	Database    *Database
+	Persistence *persistence.Persistence
 }
 
 // Create a new CommandHandler instance
@@ -43,6 +45,7 @@ func (h *CommandHandler) HandleCommand(conn net.Conn, request map[string]interfa
 		response = map[string]interface{}{"status": "OK", "message": message}
 
 	case "SET":
+
 		key, keyOk := request["key"].(string)
 		value, valueOk := request["value"].(string)
 		ttlMs := int64(0)
@@ -99,6 +102,7 @@ func (h *CommandHandler) HandleCommand(conn net.Conn, request map[string]interfa
 		}
 
 	case "INCR":
+
 		key, keyOk := request["key"].(string)
 		offset, offsetOk := request["offset"].(string) // JSON numbers are unmarshaled as float64
 
@@ -132,6 +136,7 @@ func (h *CommandHandler) HandleCommand(conn net.Conn, request map[string]interfa
 		}
 
 	case "PUSH":
+
 		key, keyOk := request["key"].(string)
 		value, valueOk := request["value"].(string)
 
@@ -147,6 +152,7 @@ func (h *CommandHandler) HandleCommand(conn net.Conn, request map[string]interfa
 		response = map[string]interface{}{"status": "OK"}
 
 	case "LPOP":
+
 		key, ok := request["key"].(string)
 		if !ok {
 			h.sendError(conn, "LPOP requires a 'key' field")
@@ -166,6 +172,7 @@ func (h *CommandHandler) HandleCommand(conn net.Conn, request map[string]interfa
 		}
 
 	case "RPOP":
+
 		key, ok := request["key"].(string)
 		if !ok {
 			h.sendError(conn, "LPOP requires a 'key' field")
