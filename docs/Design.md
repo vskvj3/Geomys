@@ -43,6 +43,8 @@ response
 ```python
 {'status': 'OK', 'value': 2}
 ```
+
+- Incr only support integer upto 2<sup>63</sup>, updating beyond that point is undefined.
 ## Data Types:
 There are some data types we are planning to itegrate into the key value store
 ### Strings
