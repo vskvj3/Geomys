@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -18,6 +19,7 @@ var (
 // Persistence manages binary log storage
 type Persistence struct {
 	file *os.File
+	mu   sync.Mutex
 }
 
 // NewPersistence initializes persistence storage
@@ -56,6 +58,9 @@ func CreateOrReplacePersistence() (*Persistence, error) {
 
 // LogRequest writes a request into the disk
 func (p *Persistence) LogRequest(req map[string]interface{}) error {
+	p.mu.Lock() // Protect file writes
+	defer p.mu.Unlock()
+
 	buf := new(bytes.Buffer)
 
 	// Write command length and command
@@ -81,7 +86,7 @@ func (p *Persistence) LogRequest(req map[string]interface{}) error {
 		binary.Write(buf, binary.LittleEndian, int32(0)) // No value
 	}
 
-	// Write value length and value (if present)
+	// Write offset length and offset (if present)
 	offset, offsetExists := req["offset"].(string)
 	if offsetExists {
 		binary.Write(buf, binary.LittleEndian, int32(len(offset)))
@@ -100,6 +105,9 @@ func (p *Persistence) LogRequest(req map[string]interface{}) error {
 
 // LoadRequests reads the binary log and returns parsed requests
 func (p *Persistence) LoadRequests() ([]map[string]interface{}, error) {
+	p.mu.Lock() // Protect file reads
+	defer p.mu.Unlock()
+
 	// Move file pointer to start
 	if _, err := p.file.Seek(0, 0); err != nil {
 		return nil, err
@@ -193,4 +201,32 @@ func (p *Persistence) LoadRequests() ([]map[string]interface{}, error) {
 	}
 
 	return requests, nil
+}
+
+// Clear removes all logged requests by truncating the binary log file.
+func (p *Persistence) Clear() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.file != nil {
+		/**
+		Why do we need to close the file: windows acts weird if the file is not closed and we try to truncatw
+		*/
+		p.file.Close()
+
+		// Truncate the file to zero length
+		if err := os.Truncate(p.file.Name(), 0); err != nil {
+			return fmt.Errorf("failed to truncate file: %w", err)
+		}
+
+		// Reopen the file in the same mode as before
+		file, err := os.OpenFile(p.file.Name(), os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
+		if err != nil {
+			return fmt.Errorf("failed to reopen file: %w", err)
+		}
+
+		p.file = file
+	}
+
+	return nil
 }

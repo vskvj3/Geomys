@@ -246,3 +246,16 @@ func (db *Database) RebuildFromPersistence() error {
 
 	return nil
 }
+
+// Clear removes all keys, lists, and expiration data from the database
+// currently only lazy deletion happends, go gc needs to be running to clear data from memory
+func (db *Database) Clear() {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	// WHY: reassigning the entire databse might cause broken references?
+	// *db = *NewDatabase()
+	db.store = make(map[string]string)
+	db.expiry = make(map[string]int64)
+	db.lists = make(map[string]*List)
+}

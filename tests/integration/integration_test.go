@@ -311,4 +311,49 @@ func TestIntegration(t *testing.T) {
 		}
 	})
 
+	t.Run("Persistence after FLUSHDB", func(t *testing.T) {
+		// Set some keys and values
+		setCommand := map[string]interface{}{
+			"command": "SET",
+			"key":     "persistentKey",
+			"value":   "persistentValue",
+		}
+		_ = sendSerializedCommand(t, conn, setCommand)
+
+		// Verify the data is persisted by fetching it
+		getCommand := map[string]interface{}{
+			"command": "GET",
+			"key":     "persistentKey",
+		}
+		response := sendSerializedCommand(t, conn, getCommand)
+		if response["status"] != "OK" || response["value"] != "persistentValue" {
+			t.Errorf("expected {status: OK, value: persistentValue}, got %v", response)
+		}
+
+		// Now, flush the DB and check persistence is removed
+		flushCommand := map[string]interface{}{
+			"command": "FLUSHDB",
+		}
+		flushResponse := sendSerializedCommand(t, conn, flushCommand)
+		if flushResponse["status"] != "OK" {
+			t.Errorf("expected {status: OK} for FLUSHDB command, got %v", flushResponse)
+		}
+
+		// Re-verify that the key is no longer available after FLUSHDB
+		response = sendSerializedCommand(t, conn, getCommand)
+		if response["status"] != "ERROR" {
+			t.Errorf("expected {status: ERROR} after FLUSHDB for key 'persistentKey', got %v", response)
+		}
+	})
+
+	t.Run("FLUSHDB command to clear database and persistence", func(t *testing.T) {
+		flushdbCommand := map[string]interface{}{
+			"command": "FLUSHDB",
+		}
+		response := sendSerializedCommand(t, conn, flushdbCommand)
+		if response["status"] != "OK" {
+			t.Errorf("expected {status: OK}, got %v", response)
+		}
+	})
+
 }

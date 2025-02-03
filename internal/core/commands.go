@@ -210,6 +210,16 @@ func (h *CommandHandler) HandleCommand(conn net.Conn, request map[string]interfa
 			response = map[string]interface{}{"status": "OK", "value": value}
 		}
 
+	// warning: there should be some auth to perform this!!
+	case "FLUSHDB":
+		if err := disk.Clear(); err != nil {
+			h.sendError(conn, "Clearing persisted data failed: "+err.Error())
+		}
+
+		h.Database.Clear()
+
+		response = map[string]interface{}{"status": "OK"}
+
 	default:
 		h.sendError(conn, "Unknown command")
 		return
