@@ -112,6 +112,11 @@ func argParser(input string) (Request, error) {
 		}
 		req.Key = parts[1]
 
+	case "FLUSHDB":
+		if len(parts) > 1 {
+			return Request{}, errors.New("FLUSHDB does not require any arguments")
+		}
+
 	default:
 		return Request{}, fmt.Errorf("unknown command: %s", command)
 	}
