@@ -200,6 +200,32 @@ How the leader is elected:
     - Every 5 seconds, nodes send a heartbeat (PING).
     - If a node is unresponsive for a threshold (e.g., 15s), it is marked as failed.
 - It have eventual consistency
+
+#### how to handle cluster?
+- if bootstrap flag is set, start the node already in leader mode
+- if join flag with join address(address of leader) is given, connect to the leader
+- if no flags are set, start the node in standalone mode.
+
+How bootstraping works?
+- each node in the cluster will have informations such as:
+    - node id: id of the current node
+    - internal port: port address used to access the normal client(client used to interact with the cluster, like a web application or user)
+    - clustermode: true or false
+    if the node is in cluster mode, it will also have informations such as:
+    - external port: port used to intact between nodes using grpc(usually, internal port + 1000)
+    - members: address of existing member of the cluster as a map nodeid -> address
+    - isLeader: whether the current node is leadr or not, 
+    - leader: if not leader, address of the leader,
+Failure recovery of the folowers:
+- leader will send heartbeats to the client to ensure they exists, if one of the client failed, it is removed from the members list, and new members list is send to all the other memebers, all the other members updates their member list with this info.
+Failure recovery of the leader:
+- each of the followers will send heartbeats to the leader, to ensure the leader exists, if the heart beats fails, a new message to all the other members(it is send by the first member who finds out the server is down. each member send the LeaderDown message after waiting a random time, so we can reduce collision) announcing the leader is down.
+- when recieving leader is down message, the other members will not attempt to send leaderIsDown message to other members, because someone already finds out.
+- upon recieving leader down message, each of the followers sends an aknowledge message to the member who send LeaderDown message.
+- Upon recieving aknowledgement, the first memeber sends imTheLead`er message to other members, and stops grpc server in follower mode, and starts a new grpc server in leader mode.
+- Other clients agrees the leader mode, and joins the leader.
+
+- Both of these failover mechanisms(for leader and follower) starts when the grpc server is initializing)
 ### Upcoming Considerations:
 - Blocking and non  blocking commands
 > In redis there are blocking and non blocking commands
