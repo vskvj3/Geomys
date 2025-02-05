@@ -1,74 +1,79 @@
 > [!NOTE]
-> This document contains design decisions and implementaion considerations
-> This is not a usage documentation or instruction, If someone just want to know the features, there is no need to waste your time with this!
+> This document contains design decisions and implementation considerations.
+> This is not a usage document or instruction manual. If someone just wants to know the features, there is no need to waste time with this!
 
 ## Commands
 ### ECHO
-request:
+**Request:**
 ```python
 {'command': 'ECHO', 'message': 'hello'}
 ```
-response:
+**Response:**
 ```python
 {'status': 'OK', 'message': 'hello'}   
 ```
+
 ### SET
-request:
+**Request:**
 ```python
-{'command': 'SET', 'key': 'story', 'value': 'quick fox jumbs over a lazy dog'}
+{'command': 'SET', 'key': 'story', 'value': 'quick fox jumps over a lazy dog'}
 ```
-response:
+**Response:**
 ```python
 {'status': 'OK'}
 ```
 
 ### GET
-request:
+**Request:**
 ```python
 {'command': 'GET', 'key': 'story'}
 ```
-response:
+**Response:**
 ```python
-{'status': 'OK', 'value': 'quick fox jumbs over a lazy dog'}
+{'status': 'OK', 'value': 'quick fox jumps over a lazy dog'}
 ```
 
 ### INCR
-- only applicable to integer counters
+- Only applicable to integer counters.
 
-request
+**Request:**
 ```python
 {'command': 'INCR', 'key': 'counter', 'offset': '1'}
 ```
-response
+**Response:**
 ```python
 {'status': 'OK', 'value': 2}
 ```
 
-- Incr only support integer upto 2<sup>63</sup>, updating beyond that point is undefined.
-## Data Types:
-There are some data types we are planning to itegrate into the key value store
+- INCR only supports integers up to 2<sup>63</sup>. Updating beyond that point is undefined.
+
+## Data Types
+There are some data types we are planning to integrate into the key-value store.
+
 ### Strings
-- Primary and default data type will be strings
+- The primary and default data type will be strings.
 ```bash
 >> set name john
 >> get name
 Server: john
 ```
-- Multiword strings can be used with double quotes
+- Multi-word strings can be used with double quotes.
+
 > [!WARNING]
-> double quotes are not escaped in strings, so be careful.
+> Double quotes are not escaped in strings, so be careful.
 ```bash
 >> set name "john doe"
 >> get name
 Server: john doe
 ```
-- In api specification strings are handled in messagePack as shownn below:
+- In API specification, strings are handled in MessagePack as shown below:
 ```go
-map[command:SET key:name value:john doe]
+map[command:SET key:name value:"john doe"]
 ```
-- Implementing word strings is a duty of client side, since server will be able to hanlde any length of strings key and value.
+- Implementing multi-word strings is the responsibility of the client-side, as the server will handle strings of any length for both keys and values.
+
 ### Counters
-- Counters are special type of values that can only increase as time passes
+- Counters are a special type of value that can only increase over time.
 ```bash
 >> set value_count 1
 Server: OK
@@ -77,159 +82,103 @@ Server: 2
 >> incr value_count 1
 Server: 3
 ```
-incr command is implemented as below
+**INCR command implementation:**
 ```go
 map[command:INCR key:value_count offset:1]
 ```
-server returns a messagepack with `value` set to new value upon completion.
+- The server returns a MessagePack object with `value` set to the new value upon completion.
 
 ### Stack and Queue
-- Both stack and queues are implemented inside same structure.
-- The single structure will be called LIST and supports two operations:
-    - PUSH: Insert an element to an existsing list, create a new list if it does not exists.
-    - RPOP: Pop an element from the end of the list.
-    - LPOP: Pop an element from the start of the list.
-- All of these commands and non-blocking and returns `STATUS:ERROR` upon unsuccessful execution.
-```Python
-    req: {'command': 'PUSH', 'key': 'test-stack', 'value': '1'}
-    res: {'status': 'OK'}
+- Both stack and queue functionalities are implemented within the same structure.
+- The single structure is called **LIST** and supports the following operations:
+    - **PUSH**: Inserts an element into an existing list, or creates a new list if it does not exist.
+    - **RPOP**: Removes and returns the last element of the list.
+    - **LPOP**: Removes and returns the first element of the list.
+- All these commands are non-blocking and return `STATUS: ERROR` upon unsuccessful execution.
+```python
+req: {'command': 'PUSH', 'key': 'test-stack', 'value': '1'}
+res: {'status': 'OK'}
 
-    req: {'command': 'PUSH', 'key': 'test-stack', 'value': '2'}
-    res: {'status': 'OK'}
+req: {'command': 'PUSH', 'key': 'test-stack', 'value': '2'}
+res: {'status': 'OK'}
 
-    req: {'command': 'PUSH', 'key': 'test-stack', 'value': '3'}
-    res: {'status': 'OK'}
+req: {'command': 'PUSH', 'key': 'test-stack', 'value': '3'}
+res: {'status': 'OK'}
 
-    req: {'command': 'LPOP', 'key': 'test-stack'}
-    res: {'status': 'OK', 'value': '1'}
+req: {'command': 'LPOP', 'key': 'test-stack'}
+res: {'status': 'OK', 'value': '1'}
 
-    req: {'command': 'RPOP', 'key': 'test-stack'}
-    res: {'status': 'OK', 'value': '3'}
+req: {'command': 'RPOP', 'key': 'test-stack'}
+res: {'status': 'OK', 'value': '3'}
 ```
-- Additional considerations on implementation:
-    - Don't use normal lists and list slicing, since it introduces additional memory overhead.
-    - Slicing method will also introduce time related overhead when coming to pop operations.
-    - Go collections have their own queue and stack implementation, can we modify the internal implementation and use that for our queue/stack?
 
-#### Internal Implementaion of stack/queue
-- Since we considered to develop both stack and queue in a single structure.
-- The structure will act similar to dequeue.
+### Internal Implementation of Stack/Queue
+- Since both stack and queue are developed within a single structure, it will function similarly to a **deque**.
 - The application should be optimized for:
-    - Insert at front: O(1)
-    - Insert at rear: O(1)
-    - Delete from front: O(1)
-    - Delete from rear: O(1)
+    - Insert at front: **O(1)**
+    - Insert at rear: **O(1)**
+    - Delete from front: **O(1)**
+    - Delete from rear: **O(1)**
 
-## Collision behaviour
-This part explains the behaviour of basic set command:
-- If key already exists
-    - returns an error
-- If key does not exists
-    - creates a new key and saves the value
+## Collision Behavior
+This section explains the behavior of the basic **SET** command:
+- If the key **already exists**:
+    - Returns an error.
+- If the key **does not exist**:
+    - Creates a new key and stores the value.
 
-## Persistance
-1. Write Through Disk
-2. Buffered Writes
-- Persisted databases are by default stored at `HOME:/.geomys/persistance.db`
+## Persistence
+### Storage Methods
+1. **Write-Through Disk**
+2. **Buffered Writes**
+
+- Persisted databases are stored by default at `HOME:/.geomys/persistence.db`.
 - Commands are stored after binary encoding.
 
-### Write Through Disk
-- Every write operation to the cache is immediately written to the persistent storage.
-- It has significate write overhead..
+### Write-Through Disk
+- Every write operation to the cache is immediately written to persistent storage.
+- It has significant write overhead.
 - Highest I/O overhead and slower command execution.
-- More reliable than Buffered Writes.
-- Commands are stored in an append-only-file when each command is run.
-- Those commands are replayed at the time the server restarts to restore the database.
-Considerations:
-```
-SET key 1
-SET key 4
-INCR key 8
-INCR key 10
-PUSH list 10
-PUSH list 11
-PUSH list 12
-RPOP list
-LPOP list
-```
-- For ease of handling, instead of storing the opearations as strings, it would be optimal to store the operations as binary objects into the append only file.
-- each file could look like this:
-```js
-{
-    timestamp datetime
-	Command string 
-	Key     string 
-	Value   string
-}
-```
-- The operations need to be logged are:
-    - SET key value exp
-    - INCR key offset
-    - EXPR key (When keys expires) 
-    - PUSH key value
-    - RPOP key
-    - LPOP key
-- We can store and rebuild this commands similar to how we handle the requests and responses.
+- More reliable than **Buffered Writes**.
+- Commands are stored in an **append-only file**, which is replayed upon server restart to restore the database.
+
 ### Buffered Writes
 - Faster command execution.
-- Data is grouped into batches and written on regular intervals.
-- Data loss may occure if the data is written after last write.
-- Preferable in situations where some data loss is not as inconvicience and latency is more important.
-> Both of these persistence methodes currently uses a append only file to store the data.
-- It is possible to only one of these persitence mechanism at a time. 
-- By default no persistence is enabled, it has to be enabled by using config file[More on this will be clarified later]
+- Data is grouped into batches and written at regular intervals.
+- Data loss may occur if a failure happens before the last write.
+- Preferable when some data loss is acceptable, and lower latency is required.
 
-### High availability architecture
-Distribution follows a Leader-Follower architecture
-How the leader is elected:
-- In the initial, the first node to spawn, will be default leader(Higest ID)
-- All the followers send pings(heartbeats) in every 5 seconds to the leader, if the leader is not responding to 3 consequitive pings or reply lags for 15 second, new leader election begins
-- Node will highest Id will become the leader. and replication starts, and all the write request redirects to the leader.
+> Both persistence methods currently use an **append-only file** to store data.
+- Only **one persistence mechanism** can be active at a time.
+- By default, **no persistence is enabled**; it must be activated via a config file.
 
-**Write Request**: Routed to the leader → Replicated to followers.
-**Read Request**: Routed to any node (leader or replica).
+## High Availability Architecture
+The system follows a **Leader-Follower** architecture.
 
-- Nodes will be communicating to other nodes through gRPC. 
-- The leader streams updates to replicas.
-- How the replication occurs?
-    - Asynchronous Replication: Leader processes writes first, then sends updates.
+### Leader Election
+- Initially, the **first node to start** becomes the **default leader** (highest ID).
+- Followers send **heartbeats every 5 seconds** to the leader.
+- If the leader does not respond to **3 consecutive pings** (15 seconds timeout), a new leader is elected.
+- The **node with the highest ID** becomes the new leader, and replication resumes.
 
-- NOde failures:
-    - If a replica fails, it should recover by fetching the latest state from the leader.
-    - Use a heartbeat mechanism to detect node failures.
-    - Every 5 seconds, nodes send a heartbeat (PING).
-    - If a node is unresponsive for a threshold (e.g., 15s), it is marked as failed.
-- It have eventual consistency
+### Request Handling
+- **Write Requests**: Routed to the leader → Replicated to followers.
+- **Read Requests**: Can be handled by any node (leader or follower).
 
-#### how to handle cluster?
-- if bootstrap flag is set, start the node already in leader mode
-- if join flag with join address(address of leader) is given, connect to the leader
-- if no flags are set, start the node in standalone mode.
+### Node Failures
+- If a **replica fails**, it recovers by fetching the latest state from the leader.
+- Heartbeat mechanism detects node failures (every 5 seconds).
+- If a node is unresponsive for **15 seconds**, it is marked as failed.
 
-How bootstraping works?
-- each node in the cluster will have informations such as:
-    - node id: id of the current node
-    - internal port: port address used to access the normal client(client used to interact with the cluster, like a web application or user)
-    - clustermode: true or false
-    if the node is in cluster mode, it will also have informations such as:
-    - external port: port used to intact between nodes using grpc(usually, internal port + 1000)
-    - members: address of existing member of the cluster as a map nodeid -> address
-    - isLeader: whether the current node is leadr or not, 
-    - leader: if not leader, address of the leader,
-Failure recovery of the folowers:
-- leader will send heartbeats to the client to ensure they exists, if one of the client failed, it is removed from the members list, and new members list is send to all the other memebers, all the other members updates their member list with this info.
-Failure recovery of the leader:
-- each of the followers will send heartbeats to the leader, to ensure the leader exists, if the heart beats fails, a new message to all the other members(it is send by the first member who finds out the server is down. each member send the LeaderDown message after waiting a random time, so we can reduce collision) announcing the leader is down.
-- when recieving leader is down message, the other members will not attempt to send leaderIsDown message to other members, because someone already finds out.
-- upon recieving leader down message, each of the followers sends an aknowledge message to the member who send LeaderDown message.
-- Upon recieving aknowledgement, the first memeber sends imTheLead`er message to other members, and stops grpc server in follower mode, and starts a new grpc server in leader mode.
-- Other clients agrees the leader mode, and joins the leader.
+### Cluster Management
+- **Bootstrap Mode**: Start as a leader if no existing cluster.
+- **Join Mode**: Connect to an existing leader.
+- **Standalone Mode**: Operate independently without clustering.
 
-- Both of these failover mechanisms(for leader and follower) starts when the grpc server is initializing)
-### Upcoming Considerations:
-- Blocking and non  blocking commands
-> In redis there are blocking and non blocking commands
-> - for more info [see](https://redis.io/docs/latest/commands/blpop/)\
-> In lists BLPOP command block the client connection if the list is empty untill anything is pushed into the list again(Instead of returning an error that the element does not exists)
-> - It can take a timeout value, which specifies when the blocking ends.
-> 
+## Upcoming Considerations
+### Blocking & Non-Blocking Commands
+> In Redis, some commands block execution until a condition is met.
+> For example, **BLPOP** blocks the client until an element is available in the list.
+> - It can take a **timeout** value specifying when blocking ends.
+> - See [Redis BLPOP documentation](https://redis.io/docs/latest/commands/blpop/) for reference.
+
