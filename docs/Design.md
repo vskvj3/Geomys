@@ -179,8 +179,27 @@ LPOP list
 - It is possible to only one of these persitence mechanism at a time. 
 - By default no persistence is enabled, it has to be enabled by using config file[More on this will be clarified later]
 
+### High availability architecture
+Distribution follows a Leader-Follower architecture
+How the leader is elected:
+- In the initial, the first node to spawn, will be default leader(Higest ID)
+- All the followers send pings(heartbeats) in every 5 seconds to the leader, if the leader is not responding to 3 consequitive pings or reply lags for 15 second, new leader election begins
+- Node will highest Id will become the leader. and replication starts, and all the write request redirects to the leader.
 
+**Write Request**: Routed to the leader → Replicated to followers.
+**Read Request**: Routed to any node (leader or replica).
 
+- Nodes will be communicating to other nodes through gRPC. 
+- The leader streams updates to replicas.
+- How the replication occurs?
+    - Asynchronous Replication: Leader processes writes first, then sends updates.
+
+- NOde failures:
+    - If a replica fails, it should recover by fetching the latest state from the leader.
+    - Use a heartbeat mechanism to detect node failures.
+    - Every 5 seconds, nodes send a heartbeat (PING).
+    - If a node is unresponsive for a threshold (e.g., 15s), it is marked as failed.
+- It have eventual consistency
 ### Upcoming Considerations:
 - Blocking and non  blocking commands
 > In redis there are blocking and non blocking commands
