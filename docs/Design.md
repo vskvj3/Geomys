@@ -155,6 +155,17 @@ This section explains the behavior of the basic **SET** command:
 ## High Availability Architecture
 The system follows a **Leader-Follower** architecture.
 
+#### Leader
+A leader is responsible for following tasks:
+- Writes: 
+    - Leader is the only allowed node in the cluster to write.
+    - All the other nodes redirects writes to the leader.
+- House keeping:
+    - Leader keeps track of the existing nodes in the cluster, and checks which of the nodes are alive by using a heartbeat mechanism. 
+    - This heartbeat also contains a list of existing nodes in the system and a hash of the list. 
+    - The list of the nodes will help the other nodes to keep track of the existing nodes.
+    
+
 ### Leader Election
 - Initially, the **first node to start** becomes the **default leader** (highest ID).
 - Followers send **heartbeats every 5 seconds** to the leader.
