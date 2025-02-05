@@ -66,22 +66,18 @@ func main() {
 	}
 	logger.Info("Port assigned: " + port)
 
-	// Handle Bootstrap Mode (Start the Leader Node)
 	if *bootstrapPtr {
+		// Handle Bootstrap Mode (Start the Leader Node)
 		logger.Info("Starting in bootstrap mode...")
 		startGRPCServer(port)
-		return
-	}
-
-	// Handle Join Mode (Connect to Leader)
-	if *joinPtr != "" {
+	} else if *joinPtr != "" {
+		// Handle Join Mode (Connect to Leader)
 		logger.Info("Joining existing cluster at " + *joinPtr)
 		joinCluster(*joinPtr, port)
-		return
+	} else {
+		// If neither bootstrap nor join, start a standalone node
+		logger.Info("Starting standalone node...")
 	}
-
-	// If neither bootstrap nor join, start a standalone node
-	logger.Info("Starting standalone node...")
 
 	// Attempt to bind to the configured port
 	listener, err := net.Listen("tcp", ":"+port)
