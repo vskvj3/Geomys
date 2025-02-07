@@ -167,9 +167,9 @@ A leader is responsible for following tasks:
     
 
 ### Leader Election
-- Initially, the **first node to start** becomes the **default leader** (highest ID).
+- Initially, the **node started in bootstrap mode** becomes the **default leader** (highest ID).
 - Followers send **heartbeats every 5 seconds** to the leader.
-- If the leader does not respond to **3 consecutive pings** (15 seconds timeout), a new leader is elected.
+- If the leader does not respond to **3 consecutive pings**, a new leader is elected.
 - The **node with the highest ID** becomes the new leader, and replication resumes.
 
 ### Request Handling
@@ -180,11 +180,35 @@ A leader is responsible for following tasks:
 - If a **replica fails**, it recovers by fetching the latest state from the leader.
 - Heartbeat mechanism detects node failures (every 5 seconds).
 - If a node is unresponsive for **15 seconds**, it is marked as failed.
+#### Leader Failover
+- If leader fails, nodes will detect the leader failure by delay in heartbeat.
+- Leader election begins and a follower will become leader.
+- 
 
 ### Cluster Management
-- **Bootstrap Mode**: Start as a leader if no existing cluster.
+- **Bootstrap Mode**: Start as a leader if no existing cluster if bootstrap flag is given when starting the server.
 - **Join Mode**: Connect to an existing leader.
 - **Standalone Mode**: Operate independently without clustering.
+
+#### How cluster mode should look like?
+- Stariting leader:
+```bash
+geomys -node_id=6767 -port=6767 -bootstrap
+```
+port 6767 will be used for the main server to run(which is used for clients to connect to run queries), main port + 1000 (7767) will be used for the grpc server, which will be used to distribute data and replications
+- if no port flag, and node_id flag is given, they will be assigned automatically
+
+- Starting follower and joining leader
+```bash
+geomys -node_id=6767 -port=6797 -join=127.0.0.1:7767
+```
+
+The follower will connect to leader on port 7767(grpc port), if leader is found working on this port, it must return an error
+
+- Once we add multiple followers to join the cluster, then the cluster management will become more automatic(if the existing leader fails, next available follower will become leader after an election)
+
+- If a follower fails, it fails. A maintainer can manually start up a new node to join an existing leader and it will work. The follower will not try to start up again, there is not point in that.
+- Same goes for the leader node, if it completely fails, there is no point in starting it again. since it is gone, a new follower will take its job, if we want to scale again, create a new follower to join the existsing cluster.
 
 ## Upcoming Considerations
 ### Blocking & Non-Blocking Commands
