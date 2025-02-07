@@ -7,7 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
+	"github.com/vskvj3/geomys/internal/cluster"
 	"github.com/vskvj3/geomys/internal/network"
 	"github.com/vskvj3/geomys/internal/utils"
 )
@@ -15,13 +17,12 @@ import (
 func main() {
 	logger := utils.NewLogger("", true)
 
-	// Load configurations from home directory
+	// Load configurations
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		logger.Error("Error getting home directory: " + err.Error())
 		return
 	}
-
 	configPath := filepath.Join(homeDir, ".geomys", "geomys.conf")
 
 	config, err := utils.LoadConfig(configPath)
@@ -61,21 +62,37 @@ func main() {
 		port = *portPtr
 		config.InternalPort, err = strconv.Atoi(*portPtr)
 		if err != nil {
-			logger.Warn("Copying internal port from flag to config failed")
+			logger.Warn("Failed to copy internal port from flag to config")
+		}
+		externalPort, err := strconv.Atoi(*portPtr)
+		externalPort += 1000
+		config.ExternalPort = externalPort
+		if err != nil {
+			logger.Warn("Failed to copy internal port from flag to config")
 		}
 	}
 	logger.Info("Port assigned: " + port)
+	grpcPort, err := strconv.Atoi(port)
+	if err != nil {
+		logger.Error("Port must be an integer: " + err.Error())
+	}
+	grpcPort += 1000
+
+	// Create clustering server instance
+	clusterServer := cluster.NewElectionServer(int32(nodeID))
 
 	if *bootstrapPtr {
-		// Handle Bootstrap Mode (Start the Leader Node)
-		logger.Info("Starting in bootstrap mode...")
-		startGRPCServer(port)
+		// Bootstrap Mode (Start the Leader Node)
+		logger.Info("Starting in bootstrap mode (leader)...")
+		clusterServer.LeaderID = nodeID
+		go clusterServer.StartServer(grpcPort) // Start gRPC server for election
 	} else if *joinPtr != "" {
-		// Handle Join Mode (Connect to Leader)
+		// Join Mode (Follower Node)
 		logger.Info("Joining existing cluster at " + *joinPtr)
-		joinCluster(*joinPtr, port)
+		go clusterServer.StartServer(grpcPort)  // Start gRPC server for election
+		go joinCluster(*joinPtr, clusterServer) // Start heartbeat mechanism
 	} else {
-		// If neither bootstrap nor join, start a standalone node
+		// Standalone Mode
 		logger.Info("Starting standalone node...")
 	}
 
@@ -89,7 +106,6 @@ func main() {
 			return
 		}
 	}
-
 	defer listener.Close()
 	logger.Info("Server is listening on " + listener.Addr().String())
 
@@ -112,15 +128,59 @@ func main() {
 	}
 }
 
-// Starts the gRPC server (Leader Node)
-func startGRPCServer(port string) {
+// Joins an existing cluster (Follower Node) and starts sending heartbeats
+func joinCluster(leaderAddr string, clusterServer *cluster.GrpcServer) {
 	logger := utils.NewLogger("", true)
-	logger.Info("Starting gRPC server on port " + port)
 
+	client, err := cluster.NewElectionClient(leaderAddr)
+	if err != nil {
+		logger.Error("Failed to connect to leader: " + err.Error())
+		return
+	}
+
+	// Send heartbeats every 5 seconds
+	for {
+		success := client.SendHeartbeat(int(clusterServer.NodeID))
+		if !success {
+			logger.Warn("Failed to send heartbeat. Checking leader status...")
+
+			// Detect if leader is down (no response for 3 cycles)
+			clusterServer.VoteLock.Lock()
+			lastHeartbeat, exists := clusterServer.Heartbeats[clusterServer.LeaderID]
+			if !exists {
+				logger.Warn("Cannot find last heartbeat...")
+			}
+			fmt.Println(clusterServer.Heartbeats)
+			clusterServer.VoteLock.Unlock()
+
+			if time.Since(lastHeartbeat) > 15*time.Second {
+				logger.Warn("Leader appears to be down. Starting leader election...")
+				startLeaderElection(clusterServer)
+			}
+		}
+		time.Sleep(5 * time.Second)
+	}
 }
 
-// Joins an existing cluster (Follower Node)
-func joinCluster(leaderAddr string, port string) {
+// Starts leader election process
+func startLeaderElection(clusterServer *cluster.GrpcServer) {
 	logger := utils.NewLogger("", true)
-	logger.Info("Attempting to join cluster at " + leaderAddr + port)
+
+	// Assume self as leader if no higher nodes exist
+	clusterServer.VoteLock.Lock()
+	newLeader := clusterServer.NodeID
+	for nodeID := range clusterServer.Heartbeats {
+		if nodeID > int(newLeader) {
+			newLeader = int32(nodeID)
+		}
+	}
+	clusterServer.VoteLock.Unlock()
+
+	if newLeader == clusterServer.NodeID {
+		logger.Info(fmt.Sprintf("Node %d is now the new leader", clusterServer.NodeID))
+		clusterServer.LeaderID = int(clusterServer.NodeID)
+	} else {
+		logger.Info(fmt.Sprintf("Waiting for node %d to become leader", newLeader))
+		clusterServer.LeaderID = int(newLeader)
+	}
 }
