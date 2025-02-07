@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	"github.com/vskvj3/geomys/internal/cluster"
 	"github.com/vskvj3/geomys/internal/network"
@@ -79,18 +78,19 @@ func main() {
 	grpcPort += 1000
 
 	// Create clustering server instance
-	clusterServer := cluster.NewElectionServer(int32(nodeID))
+	clusterServer := cluster.NewGrpcServer(int32(nodeID))
 
 	if *bootstrapPtr {
 		// Bootstrap Mode (Start the Leader Node)
 		logger.Info("Starting in bootstrap mode (leader)...")
 		clusterServer.LeaderID = nodeID
-		go clusterServer.StartServer(grpcPort) // Start gRPC server for election
+		go clusterServer.StartServer(grpcPort) // Start gRPC server as leader
+		go clusterServer.MonitorFollowers()
 	} else if *joinPtr != "" {
 		// Join Mode (Follower Node)
 		logger.Info("Joining existing cluster at " + *joinPtr)
-		go clusterServer.StartServer(grpcPort)  // Start gRPC server for election
-		go joinCluster(*joinPtr, clusterServer) // Start heartbeat mechanism
+		go clusterServer.StartServer(grpcPort)  // Start gRPC server as follower
+		go joinCluster(*joinPtr, clusterServer) // Join the leader and start heartbeat
 	} else {
 		// Standalone Mode
 		logger.Info("Starting standalone node...")
@@ -132,55 +132,13 @@ func main() {
 func joinCluster(leaderAddr string, clusterServer *cluster.GrpcServer) {
 	logger := utils.NewLogger("", true)
 
-	client, err := cluster.NewElectionClient(leaderAddr)
+	client, err := cluster.NewGrpcClient(leaderAddr)
 	if err != nil {
 		logger.Error("Failed to connect to leader: " + err.Error())
 		return
 	}
 
-	// Send heartbeats every 5 seconds
-	for {
-		success := client.SendHeartbeat(int(clusterServer.NodeID))
-		if !success {
-			logger.Warn("Failed to send heartbeat. Checking leader status...")
+	// Monitor status of the client
+	client.MonitorLeader(clusterServer)
 
-			// Detect if leader is down (no response for 3 cycles)
-			clusterServer.VoteLock.Lock()
-			lastHeartbeat, exists := clusterServer.Heartbeats[clusterServer.LeaderID]
-			if !exists {
-				logger.Warn("Cannot find last heartbeat...")
-			}
-			fmt.Println(clusterServer.Heartbeats)
-			clusterServer.VoteLock.Unlock()
-
-			if time.Since(lastHeartbeat) > 15*time.Second {
-				logger.Warn("Leader appears to be down. Starting leader election...")
-				startLeaderElection(clusterServer)
-			}
-		}
-		time.Sleep(5 * time.Second)
-	}
-}
-
-// Starts leader election process
-func startLeaderElection(clusterServer *cluster.GrpcServer) {
-	logger := utils.NewLogger("", true)
-
-	// Assume self as leader if no higher nodes exist
-	clusterServer.VoteLock.Lock()
-	newLeader := clusterServer.NodeID
-	for nodeID := range clusterServer.Heartbeats {
-		if nodeID > int(newLeader) {
-			newLeader = int32(nodeID)
-		}
-	}
-	clusterServer.VoteLock.Unlock()
-
-	if newLeader == clusterServer.NodeID {
-		logger.Info(fmt.Sprintf("Node %d is now the new leader", clusterServer.NodeID))
-		clusterServer.LeaderID = int(clusterServer.NodeID)
-	} else {
-		logger.Info(fmt.Sprintf("Waiting for node %d to become leader", newLeader))
-		clusterServer.LeaderID = int(newLeader)
-	}
 }

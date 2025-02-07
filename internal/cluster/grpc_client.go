@@ -12,12 +12,13 @@ import (
 )
 
 type GrpcClient struct {
-	Conn   *grpc.ClientConn
-	Client pb.NodeServiceClient
+	Conn          *grpc.ClientConn
+	Client        pb.NodeServiceClient
+	LastHeartbeat time.Time
 }
 
 // Connect to a node's gRPC server
-func NewElectionClient(address string) (*GrpcClient, error) {
+func NewGrpcClient(address string) (*GrpcClient, error) {
 	conn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect: %v", err)
@@ -50,6 +51,22 @@ func (c *GrpcClient) SendHeartbeat(nodeID int) bool {
 		log.Printf("Heartbeat failed: %v", err)
 		return false
 	}
+	c.LastHeartbeat = time.Now()
 	fmt.Println("grpc_client.go: sendHeartBeat", resp.Nodes)
 	return resp.Success
+}
+
+func (c *GrpcClient) MonitorLeader(server *GrpcServer) {
+	for {
+		success := c.SendHeartbeat(int(server.NodeID))
+		if !success {
+			fmt.Println("Failed to send heartbeat. Checking leader status...")
+
+			if time.Since(c.LastHeartbeat) > 15*time.Second {
+				fmt.Println("Leader appears to be down. Starting leader election...")
+				server.StartLeaderElection()
+			}
+		}
+		time.Sleep(5 * time.Second)
+	}
 }

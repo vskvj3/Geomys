@@ -11,6 +11,7 @@ import (
 	pb "github.com/vskvj3/geomys/internal/cluster/proto" // Import generated gRPC code
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/peer"
 )
 
 type GrpcServer struct {
@@ -22,7 +23,7 @@ type GrpcServer struct {
 	Nodes      []*pb.Node // List of known nodes
 }
 
-func NewElectionServer(nodeID int32) *GrpcServer {
+func NewGrpcServer(nodeID int32) *GrpcServer {
 	return &GrpcServer{
 		NodeID:     nodeID,
 		LeaderID:   -1, // No leader initially
@@ -46,25 +47,36 @@ func (s *GrpcServer) RequestVote(ctx context.Context, req *pb.VoteRequest) (*pb.
 }
 
 // Handle incoming heartbeat updates
+// Handle incoming heartbeat updates
 func (s *GrpcServer) Heartbeat(ctx context.Context, req *pb.HeartbeatRequest) (*pb.HeartbeatResponse, error) {
 	fmt.Println("grpc_server: heartbeat request: ", req)
+
+	// Get the request address (IP:Port)
+	peerInfo, ok := peer.FromContext(ctx)
+	var addr string
+	if ok {
+		addr = peerInfo.Addr.String()
+		fmt.Printf("Received heartbeat from %s\n", addr)
+	} else {
+		fmt.Println("Failed to get peer address")
+	}
 
 	s.VoteLock.Lock()
 	defer s.VoteLock.Unlock()
 
 	s.Heartbeats[int(req.NodeId)] = time.Now()
-	s.LeaderID = int(req.NodeId)
 
-	// Check if the node is already in the list
+	// Check if the node is already in the list and update address if needed
 	exists := false
 	for _, node := range s.Nodes {
 		if node.NodeId == req.NodeId {
+			node.Address = addr // Update address if the node already exists
 			exists = true
 			break
 		}
 	}
 	if !exists {
-		s.Nodes = append(s.Nodes, &pb.Node{NodeId: req.NodeId})
+		s.Nodes = append(s.Nodes, &pb.Node{NodeId: req.NodeId, Address: addr})
 	}
 
 	return &pb.HeartbeatResponse{Success: true, Nodes: s.Nodes}, nil
@@ -88,18 +100,9 @@ func (s *GrpcServer) StartServer(port int) {
 
 // Start monitoring leader status and trigger election if needed
 func (e *GrpcServer) MonitorFollowers() {
+	// for evry 15 seconds, clean up the nodes list and remove inactive nodes
 	for {
-		time.Sleep(5 * time.Second) // Check every 5 seconds
-
-		e.VoteLock.Lock()
-		lastHeartbeat, exists := e.Heartbeats[e.LeaderID]
-		e.VoteLock.Unlock()
-
-		if exists && time.Since(lastHeartbeat) > 15*time.Second {
-			fmt.Printf("grpc_server.go: MonitorLeader: Leader %d is unresponsive. Initiating election...\n", e.LeaderID)
-			e.startLeaderElection()
-		}
-
+		time.Sleep(15 * time.Second)
 		e.cleanupInactiveNodes()
 	}
 }
@@ -122,7 +125,7 @@ func (e *GrpcServer) cleanupInactiveNodes() {
 }
 
 // Initiate leader election
-func (e *GrpcServer) startLeaderElection() {
+func (e *GrpcServer) StartLeaderElection() {
 	e.VoteLock.Lock()
 	defer e.VoteLock.Unlock()
 
@@ -136,10 +139,10 @@ func (e *GrpcServer) startLeaderElection() {
 
 	// If this node is the new leader, announce it
 	if newLeader == e.NodeID {
-		fmt.Printf("Node %d is now the new leader\n", e.NodeID)
+		fmt.Printf("Inside grpc server: Node %d is now the new leader\n", e.NodeID)
 		e.LeaderID = int(e.NodeID)
 	} else {
-		fmt.Printf("Node %d is elected as the new leader\n", newLeader)
+		fmt.Printf("Inside grpc server: Node %d is elected as the new leader\n", newLeader)
 		e.LeaderID = int(newLeader)
 	}
 }
