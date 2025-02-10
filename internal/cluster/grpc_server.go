@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,17 +19,19 @@ type GrpcServer struct {
 	pb.UnimplementedNodeServiceServer
 	NodeID     int32
 	LeaderID   int
+	Port       int32 // port the server is running
 	VoteLock   sync.Mutex
 	Heartbeats map[int]time.Time
-	Nodes      []*pb.Node // List of known nodes
+	Nodes      map[int32]string // List of known nodes
 }
 
-func NewGrpcServer(nodeID int32) *GrpcServer {
+func NewGrpcServer(nodeID int32, port int32) *GrpcServer {
 	return &GrpcServer{
 		NodeID:     nodeID,
 		LeaderID:   -1, // No leader initially
+		Port:       port,
 		Heartbeats: make(map[int]time.Time),
-		Nodes:      []*pb.Node{},
+		Nodes:      make(map[int32]string),
 	}
 }
 
@@ -55,7 +58,9 @@ func (s *GrpcServer) Heartbeat(ctx context.Context, req *pb.HeartbeatRequest) (*
 	peerInfo, ok := peer.FromContext(ctx)
 	var addr string
 	if ok {
-		addr = peerInfo.Addr.String()
+		clientAddr := peerInfo.Addr.String()
+		fmt.Println(strings.Split(clientAddr, `:`)[0], req.Port)
+		addr = strings.Split(clientAddr, `:`)[0] + ":" + req.Port
 		fmt.Printf("Received heartbeat from %s\n", addr)
 	} else {
 		fmt.Println("Failed to get peer address")
@@ -67,17 +72,8 @@ func (s *GrpcServer) Heartbeat(ctx context.Context, req *pb.HeartbeatRequest) (*
 	s.Heartbeats[int(req.NodeId)] = time.Now()
 
 	// Check if the node is already in the list and update address if needed
-	exists := false
-	for _, node := range s.Nodes {
-		if node.NodeId == req.NodeId {
-			node.Address = addr // Update address if the node already exists
-			exists = true
-			break
-		}
-	}
-	if !exists {
-		s.Nodes = append(s.Nodes, &pb.Node{NodeId: req.NodeId, Address: addr})
-	}
+	s.Nodes[req.NodeId] = addr
+	fmt.Println(s.Nodes)
 
 	return &pb.HeartbeatResponse{Success: true, Nodes: s.Nodes}, nil
 }
@@ -112,37 +108,11 @@ func (e *GrpcServer) cleanupInactiveNodes() {
 	e.VoteLock.Lock()
 	defer e.VoteLock.Unlock()
 
-	activeNodes := []*pb.Node{}
-	for _, node := range e.Nodes {
-		if lastHeartbeat, exists := e.Heartbeats[int(node.NodeId)]; exists && time.Since(lastHeartbeat) <= 15*time.Second {
-			activeNodes = append(activeNodes, node)
-		} else {
-			fmt.Printf("grpc_server.go: Removing inactive node %d\n", node.NodeId)
-			delete(e.Heartbeats, int(node.NodeId))
+	for nodeID, lastHeartbeat := range e.Heartbeats {
+		if time.Since(lastHeartbeat) > 15*time.Second {
+			fmt.Printf("grpc_server.go: Removing inactive node %d\n", nodeID)
+			delete(e.Heartbeats, nodeID)
+			delete(e.Nodes, int32(nodeID))
 		}
-	}
-	e.Nodes = activeNodes
-}
-
-// Initiate leader election
-func (e *GrpcServer) StartLeaderElection() {
-	e.VoteLock.Lock()
-	defer e.VoteLock.Unlock()
-
-	// Determine new leader (lowest ID)
-	newLeader := e.NodeID
-	for _, node := range e.Nodes {
-		if int(node.NodeId) < int(newLeader) {
-			newLeader = int32(node.NodeId)
-		}
-	}
-
-	// If this node is the new leader, announce it
-	if newLeader == e.NodeID {
-		fmt.Printf("Inside grpc server: Node %d is now the new leader\n", e.NodeID)
-		e.LeaderID = int(e.NodeID)
-	} else {
-		fmt.Printf("Inside grpc server: Node %d is elected as the new leader\n", newLeader)
-		e.LeaderID = int(newLeader)
 	}
 }

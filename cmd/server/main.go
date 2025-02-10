@@ -78,7 +78,7 @@ func main() {
 	grpcPort += 1000
 
 	// Create clustering server instance
-	clusterServer := cluster.NewGrpcServer(int32(nodeID))
+	clusterServer := cluster.NewGrpcServer(int32(nodeID), int32(grpcPort))
 
 	if *bootstrapPtr {
 		// Bootstrap Mode (Start the Leader Node)

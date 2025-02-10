@@ -19,14 +19,10 @@ message VoteResponse {
 
 message HeartbeatRequest {
     int32 node_id = 1;
+    string port = 2;
 }
 
 message HeartbeatResponse {
     bool success = 1;
-    repeated Node nodes = 2;
-}
-
-message Node {
-    int32 node_id = 1;
-    string address = 2;
+    map<int32, string> nodes = 2;
 }
