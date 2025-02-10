@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package cluster;
 
-option go_package = "/Internal/cluster/proto";
+option go_package = "/internal/cluster/proto";
 
 service NodeService {
     rpc RequestVote (VoteRequest) returns (VoteResponse);
@@ -19,7 +19,7 @@ message VoteResponse {
 
 message HeartbeatRequest {
     int32 node_id = 1;
-    string port = 2;
+    int32 port = 2;
 }
 
 message HeartbeatResponse {
