@@ -23,7 +23,7 @@ type GrpcClient struct {
 
 // NewGrpcClient establishes a connection with a node's gRPC server
 func NewGrpcClient(address string) (*GrpcClient, error) {
-	conn, err := grpc.Dial(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect: %v", err)
 	}
@@ -133,7 +133,7 @@ func (c *GrpcClient) StartLeaderElection(server *GrpcServer) {
 		c.Conn.Close()
 	}
 
-	conn, err := grpc.Dial(newLeaderAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(newLeaderAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		logger.Error(fmt.Sprintf("Failed to connect to new leader (%s): %v", newLeaderAddr, err))
 		return
