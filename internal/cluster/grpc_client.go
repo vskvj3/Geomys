@@ -108,10 +108,11 @@ func (c *GrpcClient) StartLeaderElection(server *GrpcServer) {
 	// Increment election term
 	server.CurrentTerm++
 
-	// Collect votes from all nodes
-	smallestNode := server.NodeID
-	votes := make(map[int32]bool) // Track votes to check agreement
+	// Map to track votes from other nodes
+	votes := make(map[int32]bool)
+	var smallestNode int32 = -1
 
+	// Request votes from all other nodes
 	for nodeID, addr := range server.Nodes {
 		if nodeID == server.NodeID {
 			continue // Skip self
@@ -123,33 +124,46 @@ func (c *GrpcClient) StartLeaderElection(server *GrpcServer) {
 			continue
 		}
 
-		// Request vote and get the smallest node ID
+		// Request vote
 		votedNode := client.RequestVote(int(server.NodeID), server.CurrentTerm)
-		if votedNode != -1 {
-			votes[int32(votedNode)] = true // Store vote
-			if votedNode < smallestNode {
-				smallestNode = votedNode
-			}
-		}
 		client.Conn.Close()
+
+		// Ignore invalid votes
+		if votedNode == -1 {
+			continue
+		}
+
+		// Store vote
+		votes[int32(votedNode)] = true
+
+		// Track smallest voted node
+		if smallestNode == -1 || int32(votedNode) < smallestNode {
+			smallestNode = int32(votedNode)
+		}
 	}
 
-	fmt.Println(votes)
-	fmt.Println(smallestNode)
-	// Check if all nodes agree on the same smallest node
+	// If no votes were received, abort election
+	if len(votes) == 0 {
+		logger.Warn("No votes received. Retrying election...")
+		time.Sleep(3 * time.Second)
+		c.StartLeaderElection(server)
+		return
+	}
+
+	// Ensure all nodes agree on the same leader
 	for nodeID := range votes {
-		if nodeID != int32(smallestNode) {
+		if nodeID != smallestNode {
 			logger.Warn("Nodes did not agree on the same leader. Restarting election...")
 			time.Sleep(3 * time.Second)
-			c.StartLeaderElection(server) // Retry election
+			c.StartLeaderElection(server)
 			return
 		}
 	}
 
-	// Confirm the selected leader is still alive
+	// Confirm the selected leader is alive
 	if !c.ConfirmLeader(smallestNode, server) {
 		logger.Warn(fmt.Sprintf("Leader %d is not responding. Restarting election...", smallestNode))
-		delete(server.Nodes, int32(smallestNode))
+		delete(server.Nodes, smallestNode)
 		time.Sleep(3 * time.Second)
 		c.StartLeaderElection(server)
 		return
@@ -159,14 +173,14 @@ func (c *GrpcClient) StartLeaderElection(server *GrpcServer) {
 	logger.Info(fmt.Sprintf("Node %d is elected as the new leader!", smallestNode))
 	c.LeaderID = int(smallestNode)
 
-	if smallestNode == server.NodeID {
-		logger.Info("I am the new leader! Starting to manage followers...")
+	if smallestNode == int32(server.NodeID) {
+		logger.Info("I am the new leader! Managing followers...")
 		go server.MonitorFollowers()
 	} else {
 		// Connect to the new leader
-		newLeaderAddr, exists := server.Nodes[int32(smallestNode)]
+		newLeaderAddr, exists := server.Nodes[smallestNode]
 		if !exists {
-			logger.Error("New leader's address is unknown....")
+			logger.Error("New leader's address is unknown.")
 			return
 		}
 

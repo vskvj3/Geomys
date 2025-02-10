@@ -38,6 +38,7 @@ func NewGrpcServer(nodeID int32, port int32) *GrpcServer {
 }
 
 // RequestVote handles leader election requests
+// RequestVote handles leader election requests
 func (s *GrpcServer) RequestVote(ctx context.Context, req *pb.VoteRequest) (*pb.VoteResponse, error) {
 	logger := utils.GetLogger()
 	s.VoteLock.Lock()
@@ -45,7 +46,23 @@ func (s *GrpcServer) RequestVote(ctx context.Context, req *pb.VoteRequest) (*pb.
 
 	logger.Info(fmt.Sprintf("Node %d received vote request from Node %d", s.NodeID, req.NodeId))
 
-	// Find the smallest node ID from known nodes, including self
+	// Check if there's an active leader
+	if s.LeaderID > 0 {
+		leaderAddr, exists := s.Nodes[int32(s.LeaderID)]
+		if exists {
+			client, err := NewGrpcClient(leaderAddr)
+			if err == nil {
+				defer client.Conn.Close()
+				if client.SendHeartbeat(s) {
+					// Leader is still alive, return it
+					logger.Info(fmt.Sprintf("Returning current leader %d", s.LeaderID))
+					return &pb.VoteResponse{SmallestNode: int32(s.LeaderID)}, nil
+				}
+			}
+		}
+	}
+
+	// Find the smallest node ID (including self)
 	smallestNode := s.NodeID
 	for nodeID := range s.Nodes {
 		if nodeID < smallestNode {
@@ -53,6 +70,7 @@ func (s *GrpcServer) RequestVote(ctx context.Context, req *pb.VoteRequest) (*pb.
 		}
 	}
 
+	logger.Info(fmt.Sprintf("No active leader found. Returning smallest node %d", smallestNode))
 	return &pb.VoteResponse{SmallestNode: smallestNode}, nil
 }
 

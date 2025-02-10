@@ -1,0 +1,39 @@
+
+services:
+  bootstrap:
+    build: .
+    container_name: geomys-bootstrap
+    command: ["./server", "-node_id", "1", "-port", "5000", "-bootstrap"]
+    ports:
+      - "5000:5000"
+      - "6000:6000"
+
+  node1:
+    build: .
+    container_name: geomys-node1
+    command: ["./server", "-node_id", "2", "-port", "5001", "-join", "bootstrap:6000"]
+    depends_on:
+      - bootstrap
+    ports:
+      - "5001:5001"
+      - "6001:6001"
+
+  node2:
+    build: .
+    container_name: geomys-node2
+    command: ["./server", "-node_id", "3", "-port", "5002", "-join", "bootstrap:6000"]
+    depends_on:
+      - bootstrap
+    ports:
+      - "5002:5002"
+      - "6002:6002"
+
+  node3:
+    build: .
+    container_name: geomys-node3
+    command: ["./server", "-node_id", "4", "-port", "5003", "-join", "bootstrap:6000"]
+    depends_on:
+      - bootstrap
+    ports:
+      - "5003:5003"
+      - "6003:6003"

@@ -31,7 +31,7 @@ COPY --from=builder /app/server /app/server
 # COPY --from=builder /app/client /app/client
 
 # Expose the default port
-EXPOSE 6379
+EXPOSE 5000 6000
 
 # Default command to run the server
 CMD ["./server"]
