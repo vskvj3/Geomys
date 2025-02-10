@@ -61,37 +61,39 @@ func main() {
 		port = *portPtr
 		config.InternalPort, err = strconv.Atoi(*portPtr)
 		if err != nil {
-			logger.Warn("Failed to copy internal port from flag to config")
-		}
-		externalPort, err := strconv.Atoi(*portPtr)
-		externalPort += 1000
-		config.ExternalPort = externalPort
-		if err != nil {
-			logger.Warn("Failed to copy internal port from flag to config")
+			logger.Warn("Invalid port value. Using default from config.")
+		} else {
+			config.ExternalPort = config.InternalPort + 1000
 		}
 	}
 	logger.Info("Port assigned: " + port)
+
 	grpcPort, err := strconv.Atoi(port)
 	if err != nil {
 		logger.Error("Port must be an integer: " + err.Error())
+		return
 	}
-	grpcPort += 1000
+	grpcPort += 1000 // Ensure gRPC port offset
 
 	// Create clustering server instance
 	clusterServer := cluster.NewGrpcServer(int32(nodeID), int32(grpcPort))
 
-	if *bootstrapPtr {
+	switch {
+	case *bootstrapPtr:
 		// Bootstrap Mode (Start the Leader Node)
 		logger.Info("Starting in bootstrap mode (leader)...")
 		clusterServer.LeaderID = nodeID
 		go clusterServer.StartServer(grpcPort) // Start gRPC server as leader
 		go clusterServer.MonitorFollowers()
-	} else if *joinPtr != "" {
+	case *joinPtr != "":
 		// Join Mode (Follower Node)
 		logger.Info("Joining existing cluster at " + *joinPtr)
-		go clusterServer.StartServer(grpcPort)  // Start gRPC server as follower
-		go joinCluster(*joinPtr, clusterServer) // Join the leader and start heartbeat
-	} else {
+		go clusterServer.StartServer(grpcPort) // Start gRPC server as follower
+		if err := joinCluster(*joinPtr, clusterServer); err != nil {
+			logger.Error("Failed to join cluster: " + err.Error())
+			return
+		}
+	default:
 		// Standalone Mode
 		logger.Info("Starting standalone node...")
 	}
@@ -129,16 +131,13 @@ func main() {
 }
 
 // Joins an existing cluster (Follower Node) and starts sending heartbeats
-func joinCluster(leaderAddr string, clusterServer *cluster.GrpcServer) {
-	logger := utils.NewLogger("", true)
-
+func joinCluster(leaderAddr string, clusterServer *cluster.GrpcServer) error {
 	client, err := cluster.NewGrpcClient(leaderAddr)
 	if err != nil {
-		logger.Error("Failed to connect to leader: " + err.Error())
-		return
+		return fmt.Errorf("failed to connect to leader: %v", err)
 	}
 
-	// Monitor status of the client
-	client.MonitorLeader(clusterServer)
-
+	// Start monitoring leader status
+	go client.MonitorLeader(clusterServer)
+	return nil
 }
