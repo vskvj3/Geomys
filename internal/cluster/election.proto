@@ -7,22 +7,31 @@ option go_package = "/internal/cluster/proto";
 service NodeService {
     rpc RequestVote (VoteRequest) returns (VoteResponse);
     rpc Heartbeat (HeartbeatRequest) returns (HeartbeatResponse);
+    rpc CanYouLead (CanYouLeadRequest) returns (CanYouLeadResponse); 
 }
 
 message VoteRequest {
     int32 node_id = 1;
+    int32 term = 2; 
 }
 
 message VoteResponse {
-    bool granted = 1;
+    int32 smallest_node = 1; 
 }
 
 message HeartbeatRequest {
     int32 node_id = 1;
     int32 port = 2;
+    int32 term = 3; 
 }
 
 message HeartbeatResponse {
     bool success = 1;
-    map<int32, string> nodes = 2;
+    map<int32, string> nodes = 2; 
+}
+
+message CanYouLeadRequest {}
+
+message CanYouLeadResponse {
+    bool accepted = 1; 
 }

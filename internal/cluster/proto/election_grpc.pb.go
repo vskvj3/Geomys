@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	NodeService_RequestVote_FullMethodName = "/cluster.NodeService/RequestVote"
 	NodeService_Heartbeat_FullMethodName   = "/cluster.NodeService/Heartbeat"
+	NodeService_CanYouLead_FullMethodName  = "/cluster.NodeService/CanYouLead"
 )
 
 // NodeServiceClient is the client API for NodeService service.
@@ -29,6 +30,7 @@ const (
 type NodeServiceClient interface {
 	RequestVote(ctx context.Context, in *VoteRequest, opts ...grpc.CallOption) (*VoteResponse, error)
 	Heartbeat(ctx context.Context, in *HeartbeatRequest, opts ...grpc.CallOption) (*HeartbeatResponse, error)
+	CanYouLead(ctx context.Context, in *CanYouLeadRequest, opts ...grpc.CallOption) (*CanYouLeadResponse, error)
 }
 
 type nodeServiceClient struct {
@@ -59,12 +61,23 @@ func (c *nodeServiceClient) Heartbeat(ctx context.Context, in *HeartbeatRequest,
 	return out, nil
 }
 
+func (c *nodeServiceClient) CanYouLead(ctx context.Context, in *CanYouLeadRequest, opts ...grpc.CallOption) (*CanYouLeadResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CanYouLeadResponse)
+	err := c.cc.Invoke(ctx, NodeService_CanYouLead_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // NodeServiceServer is the server API for NodeService service.
 // All implementations must embed UnimplementedNodeServiceServer
 // for forward compatibility.
 type NodeServiceServer interface {
 	RequestVote(context.Context, *VoteRequest) (*VoteResponse, error)
 	Heartbeat(context.Context, *HeartbeatRequest) (*HeartbeatResponse, error)
+	CanYouLead(context.Context, *CanYouLeadRequest) (*CanYouLeadResponse, error)
 	mustEmbedUnimplementedNodeServiceServer()
 }
 
@@ -80,6 +93,9 @@ func (UnimplementedNodeServiceServer) RequestVote(context.Context, *VoteRequest)
 }
 func (UnimplementedNodeServiceServer) Heartbeat(context.Context, *HeartbeatRequest) (*HeartbeatResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Heartbeat not implemented")
+}
+func (UnimplementedNodeServiceServer) CanYouLead(context.Context, *CanYouLeadRequest) (*CanYouLeadResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CanYouLead not implemented")
 }
 func (UnimplementedNodeServiceServer) mustEmbedUnimplementedNodeServiceServer() {}
 func (UnimplementedNodeServiceServer) testEmbeddedByValue()                     {}
@@ -138,6 +154,24 @@ func _NodeService_Heartbeat_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _NodeService_CanYouLead_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CanYouLeadRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeServiceServer).CanYouLead(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NodeService_CanYouLead_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeServiceServer).CanYouLead(ctx, req.(*CanYouLeadRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // NodeService_ServiceDesc is the grpc.ServiceDesc for NodeService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -152,6 +186,10 @@ var NodeService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Heartbeat",
 			Handler:    _NodeService_Heartbeat_Handler,
+		},
+		{
+			MethodName: "CanYouLead",
+			Handler:    _NodeService_CanYouLead_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

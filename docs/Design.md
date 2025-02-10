@@ -210,6 +210,50 @@ The follower will connect to leader on port 7767(grpc port), if leader is found 
 - If a follower fails, it fails. A maintainer can manually start up a new node to join an existing leader and it will work. The follower will not try to start up again, there is not point in that.
 - Same goes for the leader node, if it completely fails, there is no point in starting it again. since it is gone, a new follower will take its job, if we want to scale again, create a new follower to join the existsing cluster.
 
+## Leader election:
+### Case 1:
+- Each node will have a list of nodes:
+- node will send heartbeat to followers in a specific time interval
+- if the leader does not respond, the node will know the leader is down, and starts an election
+- each node wil check the smallest node in the existing node list, and checks for the in request vote section, and grants vote to the smallest node id in its list. if the leader election fails, each node updates its nodes list by sending vote request to each node in nodes list. If any node does not respond, the node will be removed from the list
+leader elction algorithm client:
+- checks for the smallest node id in nodes list
+- if it is other node:
+    - sends canYouLeader request to the other node
+    - the node sends grants request if it is alive
+    - if the node is not alive, removes the node from the nodes list, and restarts the election
+- if is current node:
+    - starts node in leader mode
+
+
+### case 3 quorum based:
+- upon leader election starts, each node sends a voteRequest to all other nodes on the list.
+- If the node is not alive, it is remove from the nodes list.
+- If the node is alive:
+    - Reciever node: checks the term and node id, if it is smaller than its own node id, it grant vote, otherwise refuses.
+- If a node gets majority vote, it becomes leader, and sends a newLeader message to all other nodes.
+- If it does not gets majority vote, if listens for newleader message. if newLeader message is recieved, it updates its own leader, and if it does not recieve newLeader message, another election starts.
+
+### Case 3.2 
+- Same as above, it sends vote request to other nodes, if the vote it recieved is from the smallest node in its nodes list, it will send granted, or does not grants vote. when a node gets majority vote. it will sent new leader request to all other nodes on the list. all other nodes will agree on the list will update its nodes list
+
+### Case 4: Leader initiative:
+- Leader sends heartbeat to each of the followers, followers responds to the heartbeat.
+- Along with heart beat, the leader also sends existing nodes list to the follower, so the follower can update its nodes list.
+- Leader keeps the node list with the nodes that responds to the heartbeat with address and nodes id.
+- Upon the reciever does not recieve new heartbeat for 15 seconds, an election begins.
+- Each node sends an VoteRequest to each of the node in its nodes list. 
+- Upon recieving VoteRequest, the node wil grant the vote if its node id is the smallest in the nodes list.
+- If all the nodes agrees on a single node, it will elect that node as the smallest, and the election will conclude.
+
+### Final
+- Each follower will send heartbeat to the leader.
+- Leader will send the updated nodes list.
+- When leader goes down, a new election begins.
+- Each node will send a VoteRequest to all the nodes in its nodes list.
+- Upon recieving this request, the nodes will check the smalllest node id in its list and send it back. 
+- If a node receives same node id from all the votes, it will be selected as the new leader. 
+- A canYouLeades message is send to this node by all the nodes, if the node grants the message, it will be new leader, else a new leader will election will start again(after removing that node from the list)
 ## Upcoming Considerations
 ### Blocking & Non-Blocking Commands
 > In Redis, some commands block execution until a condition is met.

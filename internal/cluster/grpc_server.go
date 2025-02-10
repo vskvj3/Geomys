@@ -16,22 +16,24 @@ import (
 
 type GrpcServer struct {
 	pb.UnimplementedNodeServiceServer
-	NodeID     int32
-	LeaderID   int
-	Port       int32 // Server's port
-	VoteLock   sync.Mutex
-	Heartbeats map[int]time.Time
-	Nodes      map[int32]string // Known nodes in the cluster
+	NodeID      int32
+	LeaderID    int
+	Port        int32 // Server's port
+	VoteLock    sync.Mutex
+	Heartbeats  map[int]time.Time
+	CurrentTerm int32
+	Nodes       map[int32]string // Known nodes in the cluster
 }
 
 // NewGrpcServer initializes a new gRPC server node
 func NewGrpcServer(nodeID int32, port int32) *GrpcServer {
 	return &GrpcServer{
-		NodeID:     nodeID,
-		LeaderID:   -1, // No leader initially
-		Port:       port,
-		Heartbeats: make(map[int]time.Time),
-		Nodes:      make(map[int32]string),
+		NodeID:      nodeID,
+		LeaderID:    -1, // No leader initially
+		Port:        port,
+		Heartbeats:  make(map[int]time.Time),
+		Nodes:       make(map[int32]string),
+		CurrentTerm: -1,
 	}
 }
 
@@ -43,12 +45,15 @@ func (s *GrpcServer) RequestVote(ctx context.Context, req *pb.VoteRequest) (*pb.
 
 	logger.Info(fmt.Sprintf("Node %d received vote request from Node %d", s.NodeID, req.NodeId))
 
-	// Grant vote to higher node IDs
-	if req.NodeId > s.NodeID {
-		s.LeaderID = int(req.NodeId)
-		return &pb.VoteResponse{Granted: true}, nil
+	// Find the smallest node ID from known nodes, including self
+	smallestNode := s.NodeID
+	for nodeID := range s.Nodes {
+		if nodeID < smallestNode {
+			smallestNode = nodeID
+		}
 	}
-	return &pb.VoteResponse{Granted: false}, nil
+
+	return &pb.VoteResponse{SmallestNode: smallestNode}, nil
 }
 
 // Heartbeat handles heartbeat messages from followers
