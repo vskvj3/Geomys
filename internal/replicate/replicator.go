@@ -4,7 +4,9 @@ import (
 	"context"
 	"log"
 	"strconv"
+	"strings"
 
+	"github.com/vskvj3/geomys/internal/core"
 	"github.com/vskvj3/geomys/internal/persistence"
 	"github.com/vskvj3/geomys/internal/replicate/proto"
 )
@@ -12,31 +14,49 @@ import (
 // ReplicationServer handles leader-follower replication
 type ReplicationServer struct {
 	proto.UnimplementedReplicationServiceServer
+	CommandHandler *core.CommandHandler
 }
 
-func NewReplicationServer() *ReplicationServer {
-	return &ReplicationServer{}
+func NewReplicationServer(handler *core.CommandHandler) *ReplicationServer {
+	return &ReplicationServer{
+		CommandHandler: handler,
+	}
 }
 
-// ForwardRequest is called by followers when they receive a write request
 func (s *ReplicationServer) ForwardRequest(ctx context.Context, req *proto.CommandRequest) (*proto.CommandResponse, error) {
+	// Convert gRPC request into a map
+	commandData := map[string]interface{}{
+		"command": strings.ToUpper(req.Command.Command),
+	}
+	if req.Command.Key != "" {
+		commandData["key"] = req.Command.Key
+	}
+	if req.Command.Value != "" {
+		commandData["value"] = req.Command.Value
+	}
+	if req.Command.Exp > 0 {
+		commandData["exp"] = req.Command.Exp
+	}
+	if req.Command.Offset != 0 {
+		commandData["offset"] = req.Command.Offset
+	}
 
-	// Execute the command locally
-	// CommandHandler needs commands as a interface
-	// test := make(map[string]interface{}, 0)
-	// response, err := commandHandler.HandleCommand(test)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// fmt.Println(response)
+	// Execute the command using commandHandler
+	response, err := s.CommandHandler.HandleCommand(commandData)
+	if err != nil {
+		return nil, err
+	}
 
-	// // Send ReplicateRequest to all followers
-	// err = s.replicateToFollowers(req)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	testString := "test"
-	return &proto.CommandResponse{Message: testString}, nil
+	// Extract message/value from response
+	message := "OK"
+	if msg, ok := response["message"].(string); ok {
+		message = msg
+	} else if val, ok := response["value"].(string); ok {
+		message = val
+	}
+
+	// Return the final response
+	return &proto.CommandResponse{Message: message}, nil
 }
 
 // ReplicateRequest is called by the leader to sync a command to followers

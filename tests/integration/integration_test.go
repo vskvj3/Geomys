@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/vmihailenco/msgpack/v5"
+	"github.com/vskvj3/geomys/internal/core"
 	"github.com/vskvj3/geomys/internal/network"
 	"github.com/vskvj3/geomys/internal/utils"
 )
@@ -47,11 +48,13 @@ func sendSerializedCommand(t *testing.T, conn net.Conn, command map[string]inter
 func TestIntegration(t *testing.T) {
 	// Initialize the logger
 	utils.NewLogger("", false)
+	db := core.NewDatabase()
+	commadHandler := core.NewCommandHandler(db)
 
 	// Start the server in a goroutine
 	go func() {
 		utils.LoadConfig("configPath")
-		server, _ := network.NewServer("")
+		server, _ := network.NewServer("", commadHandler)
 		listener, _ := net.Listen("tcp", ":6379")
 		defer listener.Close()
 		for {

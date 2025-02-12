@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/vskvj3/geomys/internal/cluster"
+	"github.com/vskvj3/geomys/internal/core"
 	"github.com/vskvj3/geomys/internal/network"
 	"github.com/vskvj3/geomys/internal/replicate"
 	"github.com/vskvj3/geomys/internal/utils"
@@ -77,9 +78,20 @@ func main() {
 	}
 	grpcPort += 1000 // Ensure gRPC port offset
 
-	// Create clustering server instance
+	// create database and command handler
+	db := core.NewDatabase()
+	commadHandler := core.NewCommandHandler(db)
+
+	// Create the network server
+	server, err := network.NewServer(*joinPtr, commadHandler)
+	if err != nil {
+		logger.Error("Server creation failed: " + err.Error())
+		return
+	}
+
+	// Create grpc clustering and replication server instances
 	clusterServer := cluster.NewGrpcServer(int32(nodeID), int32(grpcPort))
-	replicationServer := replicate.NewReplicationServer()
+	replicationServer := replicate.NewReplicationServer(commadHandler)
 
 	switch {
 	case *bootstrapPtr:
@@ -115,13 +127,6 @@ func main() {
 	}
 	defer listener.Close()
 	logger.Info("Server is listening on " + listener.Addr().String())
-
-	// Create the network server
-	server, err := network.NewServer(*joinPtr)
-	if err != nil {
-		logger.Error("Server creation failed: " + err.Error())
-		return
-	}
 
 	// Accept incoming connections
 	for {

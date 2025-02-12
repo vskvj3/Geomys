@@ -17,10 +17,8 @@ type Server struct {
 	CommandHandler *core.CommandHandler
 }
 
-func NewServer(leaderAddr string) (*Server, error) {
+func NewServer(leaderAddr string, handler *core.CommandHandler) (*Server, error) {
 	fmt.Println("Leader address: " + leaderAddr)
-	db := core.NewDatabase()
-	handler := core.NewCommandHandler(db)
 	logger := utils.GetLogger()
 	config, err := utils.GetConfig()
 
@@ -38,7 +36,7 @@ func NewServer(leaderAddr string) (*Server, error) {
 		replicationClient.SyncRequest(handler)
 	} else {
 		// only rebuild from persistence if no replication is happening (ie. leader node)
-		if err := db.RebuildFromPersistence(); err != nil {
+		if err := handler.Database.RebuildFromPersistence(); err != nil {
 			logger.Warn("Could not read from persistence: " + err.Error())
 		} else {
 			logger.Info("Loaded data from persistence")
@@ -46,7 +44,7 @@ func NewServer(leaderAddr string) (*Server, error) {
 	}
 
 	// start database cleanup (to remove expired keys)
-	db.StartCleanup(100 * time.Millisecond)
+	handler.Database.StartCleanup(100 * time.Millisecond)
 
 	return &Server{CommandHandler: handler}, nil
 }
@@ -59,6 +57,10 @@ func (s *Server) HandleConnection(conn net.Conn) {
 	}()
 
 	logger := utils.GetLogger() // Use the singleton logger
+	// config, err := utils.GetConfig()
+	// if err != nil {
+	// 	logger.Error("Failed to load configuration: " + err.Error())
+	// }
 
 	for {
 		buffer := make([]byte, 1024)

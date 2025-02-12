@@ -8,7 +8,8 @@ message Command {
     string command = 1;
     string key = 2;
     string value = 3;
-    int32 offset = 4;
+    int32 exp = 4;
+    int32 offset = 5;
 }
 
 // Command request structure
