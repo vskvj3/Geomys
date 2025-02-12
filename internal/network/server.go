@@ -2,12 +2,14 @@ package network
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"time"
 
 	"github.com/vmihailenco/msgpack/v5"
 	"github.com/vskvj3/geomys/internal/core"
+	"github.com/vskvj3/geomys/internal/replicate"
 	"github.com/vskvj3/geomys/internal/utils"
 )
 
@@ -15,21 +17,37 @@ type Server struct {
 	CommandHandler *core.CommandHandler
 }
 
-func NewServer() (*Server, error) {
+func NewServer(leaderAddr string) (*Server, error) {
+	fmt.Println("Leader address: " + leaderAddr)
 	db := core.NewDatabase()
+	handler := core.NewCommandHandler(db)
 	logger := utils.GetLogger()
+	config, err := utils.GetConfig()
 
-	//rebuild from persistence if it exists
-	if err := db.RebuildFromPersistence(); err != nil {
-		logger.Warn("Could not read from persistence: " + err.Error())
+	if err != nil {
+		logger.Error("Loading config in server failed: " + err.Error())
+	}
+
+	//rebuild from persistence if standalone mode, else request sync from leader
+	if !config.IsLeader && leaderAddr != "" {
+		replicationClient, err := replicate.NewReplicationClient(leaderAddr)
+		if err != nil {
+			logger.Error("Replication client creation failed: " + err.Error())
+		}
+		logger.Info("Re-syncing from leader node...")
+		replicationClient.SyncRequest(handler)
 	} else {
-		logger.Info("Loaded data from persistence")
+		// only rebuild from persistence if no replication is happening (ie. leader node)
+		if err := db.RebuildFromPersistence(); err != nil {
+			logger.Warn("Could not read from persistence: " + err.Error())
+		} else {
+			logger.Info("Loaded data from persistence")
+		}
 	}
 
 	// start database cleanup (to remove expired keys)
 	db.StartCleanup(100 * time.Millisecond)
 
-	handler := core.NewCommandHandler(db)
 	return &Server{CommandHandler: handler}, nil
 }
 
@@ -69,7 +87,7 @@ func (s *Server) HandleConnection(conn net.Conn) {
 		// Log the received request (optional, for debugging)
 		logger.Debug("Received request from client: " + conn.RemoteAddr().String())
 
-		response, err := s.CommandHandler.HandleCommand(conn, request)
+		response, err := s.CommandHandler.HandleCommand(request)
 		if err != nil {
 			s.sendError(conn, err.Error())
 		} else {

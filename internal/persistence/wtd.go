@@ -7,7 +7,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
+
+	"github.com/vskvj3/geomys/internal/utils"
 )
 
 // Singleton persistence instance and mutex for thread safety
@@ -25,12 +28,23 @@ type Persistence struct {
 // NewPersistence initializes persistence storage
 func NewPersistence() (*Persistence, error) {
 	homeDir, _ := os.UserHomeDir()
-	persistenceFile := filepath.Join(homeDir, ".geomys", "binlog.dat")
+	config, err := utils.GetConfig()
+	if err != nil {
+		return nil, errors.New("failed to load config")
+	}
+	persistenceDir := filepath.Join(homeDir, ".geomys", "Node"+strconv.Itoa(config.NodeID))
+	persistenceFile := filepath.Join(persistenceDir, "binlog.dat")
+
+	// Ensure the directory exists
+	err = os.MkdirAll(persistenceDir, 0755)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create persistence directory: %v", err)
+	}
 
 	// Open the file in append mode, create if needed
 	file, err := os.OpenFile(persistenceFile, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to open persistence file: %v", err)
 	}
 
 	return &Persistence{file: file}, nil
@@ -229,4 +243,9 @@ func (p *Persistence) Clear() error {
 	}
 
 	return nil
+}
+
+// reads all commands in the disk, returns, it as a list(we already have loadRequest for that)
+func (*Persistence) ReadAllCommands() []string {
+	return make([]string, 0)
 }

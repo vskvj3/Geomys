@@ -3,24 +3,45 @@ package utils
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"os"
+	"sync"
 )
 
+// Config struct holds application configuration
 type Config struct {
-	InternalPort  int    `json:"internal_port"`       //  port for client-server communications
-	ExternalPort  int    `json:"external_port"`       //  port for server-server communications
-	DefaultExpiry int    `json:"default_expiry"`      // Default expiration time in milliseconds
-	Persistence   string `json:"persistence"`         // Peristence Mechanism
-	Replication   bool   `json:"replication_enabled"` // Enable/disable replication
+	InternalPort  int    `json:"internal_port"`
+	ExternalPort  int    `json:"external_port"`
+	DefaultExpiry int    `json:"default_expiry"`
+	Persistence   string `json:"persistence"`
+	Replication   bool   `json:"replication_enabled"`
 	NodeID        int    `json:"node_id"`
-	Sharding      bool   `json:"sharding_enabled"` // Enable/disable sharding
+	IsLeader      bool   `json:"leader_id"`
+	Sharding      bool   `json:"sharding_enabled"`
+	ClusterMode   bool   `json:"cluster_mode"`
 }
 
-// LoadConfig reads the configuration from the given file
-func LoadConfig(filename string) (*Config, error) {
+var (
+	configInstance *Config   // Singleton configInstance
+	configOnce     sync.Once // Ensures thread-safe initialization
+)
+
+// LoadConfig initializes the singleton configInstance
+func LoadConfig(filename string) error {
+	var err error
+	configOnce.Do(func() {
+		configInstance, err = loadConfigFromFile(filename)
+		if err != nil {
+			log.Fatalf("Failed to load config: %v", err)
+		}
+	})
+	return err
+}
+
+// loadConfigFromFile reads and parses the config file
+func loadConfigFromFile(filename string) (*Config, error) {
 	file, err := os.Open(filename)
 	if err != nil {
-		// If the file doesn't exist, return defaults
 		if errors.Is(err, os.ErrNotExist) {
 			return getDefaultConfig(), nil
 		}
@@ -34,29 +55,37 @@ func LoadConfig(filename string) (*Config, error) {
 		return nil, err
 	}
 
-	// Validate and apply defaults if necessary
 	applyDefaults(config)
 	return config, nil
 }
 
-// getDefaultConfig returns a Config struct with default values
+// GetConfig returns the singleton config configInstance
+func GetConfig() (*Config, error) {
+	if configInstance == nil {
+		return nil, errors.New("Config not initialized. Call LoadConfig() first")
+	}
+	return configInstance, nil
+}
+
+// getDefaultConfig returns default config values
 func getDefaultConfig() *Config {
 	return &Config{
 		InternalPort:  6379,
-		DefaultExpiry: 60000, // 60 seconds
+		DefaultExpiry: 60000,
 		Persistence:   "bufferedwrite",
 		Replication:   false,
 		Sharding:      false,
+		IsLeader:      false,
 	}
 }
 
-// applyDefaults ensures that missing or zero-value fields get default values
+// applyDefaults ensures missing values get defaults
 func applyDefaults(config *Config) {
 	if config.InternalPort == 0 {
 		config.InternalPort = 6379
 	}
 	if config.DefaultExpiry == 0 {
-		config.DefaultExpiry = 60000 // 60 seconds
+		config.DefaultExpiry = 60000
 	}
 	if config.Persistence != "writethroughdisk" && config.Persistence != "bufferedwrite" {
 		config.Persistence = "writethroughdisk"

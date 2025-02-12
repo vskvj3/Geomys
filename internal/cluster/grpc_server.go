@@ -9,6 +9,9 @@ import (
 	"time"
 
 	pb "github.com/vskvj3/geomys/internal/cluster/proto" // Import generated gRPC code
+	pbr "github.com/vskvj3/geomys/internal/replicate/proto"
+
+	"github.com/vskvj3/geomys/internal/replicate"
 	"github.com/vskvj3/geomys/internal/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
@@ -109,19 +112,26 @@ func (s *GrpcServer) Heartbeat(ctx context.Context, req *pb.HeartbeatRequest) (*
 }
 
 // StartServer initializes and starts the gRPC server
-func (s *GrpcServer) StartServer(port int) {
+func (s *GrpcServer) StartServer(port int, repliServer *replicate.ReplicationServer) {
 	logger := utils.GetLogger()
+
+	// Start listening on the given port
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		logger.Error("Failed to start server: " + err.Error())
 		return
 	}
 
+	// Create a new gRPC server
 	grpcServer := grpc.NewServer()
+
+	// Register election (NodeService) and replication (ReplicationService) services
 	pb.RegisterNodeServiceServer(grpcServer, s)
+	pbr.RegisterReplicationServiceServer(grpcServer, repliServer)
 
 	logger.Info(fmt.Sprintf("Node %d started gRPC server on port %d", s.NodeID, port))
 
+	// Start the server in a goroutine so it can be stopped gracefully
 	if err := grpcServer.Serve(lis); err != nil {
 		logger.Error("gRPC server stopped: " + err.Error())
 	}
@@ -148,4 +158,14 @@ func (s *GrpcServer) cleanupInactiveNodes() {
 			delete(s.Nodes, int32(nodeID))
 		}
 	}
+}
+
+// in cluster/grpc_server.go
+func (s *GrpcServer) GetFollowerNodes() map[int32]string {
+	return s.Nodes
+}
+
+// TO IMPLEMENT
+func IsLeader() bool {
+	return true
 }

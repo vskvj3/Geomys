@@ -50,7 +50,8 @@ func TestIntegration(t *testing.T) {
 
 	// Start the server in a goroutine
 	go func() {
-		server, _ := network.NewServer()
+		utils.LoadConfig("configPath")
+		server, _ := network.NewServer("")
 		listener, _ := net.Listen("tcp", ":6379")
 		defer listener.Close()
 		for {

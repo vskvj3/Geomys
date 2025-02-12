@@ -2,7 +2,6 @@ package core
 
 import (
 	"errors"
-	"net"
 	"strconv"
 	"strings"
 
@@ -20,10 +19,10 @@ func NewCommandHandler(db *Database) *CommandHandler {
 }
 
 // HandleCommand processes client commands and sends appropriate responses
-func (h *CommandHandler) HandleCommand(conn net.Conn, request map[string]interface{}) (map[string]interface{}, error) {
+func (h *CommandHandler) HandleCommand(request map[string]interface{}) (map[string]interface{}, error) {
 	disk, err := persistence.CreateOrReplacePersistence()
 	if err != nil {
-		return nil, errors.New("could not access disk")
+		return nil, errors.New("could not access disk: " + err.Error())
 	}
 	// Process the command
 	command, ok := request["command"].(string)
