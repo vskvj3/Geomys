@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"errors"
+	"flag"
 	"fmt"
 	"net"
 	"os"
@@ -125,14 +126,21 @@ func argParser(input string) (Request, error) {
 }
 
 func main() {
-	conn, err := net.Dial("tcp", "localhost:6379")
+	// Define a port flag with a default value of 6379
+	port := flag.Int("port", 6379, "Port number of the server")
+	flag.Parse() // Parse the command-line flags
+
+	serverAddr := fmt.Sprintf("localhost:%d", *port)
+
+	// Connect to the server using the specified port
+	conn, err := net.Dial("tcp", serverAddr)
 	if err != nil {
-		fmt.Printf("Error connecting to server: %v\n", err)
+		fmt.Printf("Error connecting to server on port %d: %v\n", *port, err)
 		return
 	}
 	defer conn.Close()
 
-	fmt.Println("Connected to server. Type commands (e.g., PING, ECHO, SET key value, GET key) and press Enter.")
+	fmt.Printf("Connected to server on port %d. Type commands (e.g., PING, ECHO, SET key value, GET key) and press Enter.\n", *port)
 
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
