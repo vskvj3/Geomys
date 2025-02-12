@@ -23,8 +23,8 @@ func main() {
 		return
 	}
 	configPath := filepath.Join(homeDir, ".geomys", "geomys.conf")
-
-	config, err := utils.LoadConfig(configPath)
+	utils.LoadConfig(configPath)
+	config, err := utils.GetConfig()
 	if err != nil {
 		logger.Error("Error loading configuration: " + err.Error())
 		return
