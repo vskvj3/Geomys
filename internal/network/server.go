@@ -69,6 +69,32 @@ func (s *Server) HandleConnection(conn net.Conn) {
 		// Log the received request (optional, for debugging)
 		logger.Debug("Received request from client: " + conn.RemoteAddr().String())
 
-		s.CommandHandler.HandleCommand(conn, request)
+		response, err := s.CommandHandler.HandleCommand(conn, request)
+		if err != nil {
+			s.sendError(conn, err.Error())
+		} else {
+			s.sendResponse(conn, response)
+		}
 	}
+}
+
+// sendResponse serializes the response and sends it to the client
+func (h *Server) sendResponse(conn net.Conn, response map[string]interface{}) {
+	logger := utils.GetLogger()
+
+	data, err := msgpack.Marshal(response)
+	if err != nil {
+		logger.Error("Failed to encode response: " + err.Error())
+		return
+	}
+	_, err = conn.Write(data)
+	if err != nil {
+		logger.Error("Failed to send response: " + err.Error())
+	}
+}
+
+// sendError sends an error message to the client
+func (h *Server) sendError(conn net.Conn, errorMessage string) {
+	response := map[string]interface{}{"status": "ERROR", "message": errorMessage}
+	h.sendResponse(conn, response)
 }
