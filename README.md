@@ -42,13 +42,16 @@ geomys/
 - Clean up code
 - Add proper exception handling
 
-## TODO [Features]
+## Requirements
 Some features to include:
-- [x] Expiration
-- [ ] Complex data types
-- [ ] Hash collision detection and management
-- [ ] Persistence
-- [ ] Clustering
-- [ ] Replication
-- [ ] Sharding
-- [ ] Transaction support
+- Set and Get key values
+- Incr command to increment integer values(as a counter)
+- Set expiry to keys
+- Queues and Stacks (Can use a deque to implement both)
+- Persistence
+- Configuration
+- Logging
+- Cluster mode
+- Leader elecetion
+- Failure recovery
+- Replication
