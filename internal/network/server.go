@@ -7,11 +7,9 @@ import (
 	"net"
 	"time"
 
-	"github.com/vmihailenco/msgpack/v5"
 	"github.com/vskvj3/geomys/internal/cluster"
 	"github.com/vskvj3/geomys/internal/core"
 	"github.com/vskvj3/geomys/internal/replicate"
-	"github.com/vskvj3/geomys/internal/replicate/proto"
 	"github.com/vskvj3/geomys/internal/utils"
 )
 
@@ -120,9 +118,8 @@ func (s *Server) HandleConnection(conn net.Conn) {
 			return
 		}
 
-		// Deserialize request
-		var request map[string]interface{}
-		err = msgpack.Unmarshal(buffer[:n], &request)
+		request, err := utils.DecodeRequest(buffer[:n])
+
 		if err != nil {
 			logger.Error("Failed to decode request: " + err.Error())
 			continue
@@ -130,29 +127,15 @@ func (s *Server) HandleConnection(conn net.Conn) {
 
 		logger.Debug("Received request from client: " + conn.RemoteAddr().String())
 
-		// Extract command type
-		command, ok := request["command"].(string)
-		if !ok {
-			s.sendError(conn, "Invalid command format")
-			continue
+		command, err := utils.ConvertRequestToCommand(request)
+		if err != nil {
+			logger.Error("Request to command conversion failed")
 		}
 
 		var replicationClient *replicate.ReplicationClient
-		protoCommand := &proto.Command{Command: command}
-		if key, ok := request["key"].(string); ok {
-			protoCommand.Key = key
-		}
-		if value, ok := request["value"].(string); ok {
-			protoCommand.Value = value
-		}
-		if exp, ok := request["exp"].(int64); ok {
-			protoCommand.Exp = int32(exp)
-		}
-		if offset, ok := request["offset"].(int64); ok {
-			protoCommand.Offset = int32(offset)
-		}
+
 		// If not the leader and command is a write, forward it to the leader
-		if !config.IsLeader && s.grpcServer != nil && isWriteCommand(command) {
+		if !config.IsLeader && s.grpcServer != nil && isWriteCommand(command.Command) {
 			logger.Info("Forwarding write request to leader node")
 
 			replicationClient, err = replicate.NewReplicationClient(s.grpcServer.Nodes[int32(s.grpcServer.LeaderID)])
@@ -162,7 +145,7 @@ func (s *Server) HandleConnection(conn net.Conn) {
 				continue
 			}
 
-			response, err := replicationClient.ForwardRequest(int32(config.NodeID), protoCommand)
+			response, err := replicationClient.ForwardRequest(int32(config.NodeID), command)
 			if err != nil {
 				logger.Error("Forward request failed: " + err.Error())
 				s.sendError(conn, "Failed to forward request to leader")
@@ -180,7 +163,7 @@ func (s *Server) HandleConnection(conn net.Conn) {
 		} else {
 			s.sendResponse(conn, response)
 			if config.IsLeader && s.grpcServer.LeaderID != -1 {
-				replicationClient.ReplicateToFollowers(protoCommand, s.grpcServer)
+				replicationClient.ReplicateToFollowers(command, s.grpcServer)
 			}
 
 		}
@@ -201,7 +184,7 @@ func isWriteCommand(command string) bool {
 // sendResponse serializes the response and sends it to the client
 func (s *Server) sendResponse(conn net.Conn, response map[string]interface{}) {
 	logger := utils.GetLogger()
-	data, err := msgpack.Marshal(response)
+	data, err := utils.EncodeResponse(response)
 	if err != nil {
 		logger.Error("Failed to encode response: " + err.Error())
 		return

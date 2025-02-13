@@ -106,7 +106,7 @@ func (h *CommandHandler) HandleCommand(request map[string]interface{}) (map[stri
 		}
 
 		key, keyOk := request["key"].(string)
-		offset, offsetOk := request["offset"].(string) // JSON numbers are unmarshaled as float64
+		offset, offsetOk := request["offset"].(string)
 
 		if !keyOk {
 			return nil, errors.New("INCR requires a 'key' field")
@@ -166,7 +166,7 @@ func (h *CommandHandler) HandleCommand(request map[string]interface{}) (map[stri
 
 		if value == "" {
 			// If it does this, you are doing something very very wrong!!
-			response = map[string]interface{}{"status": "NOT_FOUND"}
+			response = map[string]interface{}{"status": "ERROR", "message": "Not Found!"}
 		} else {
 			response = map[string]interface{}{"status": "OK", "value": value}
 		}
@@ -187,7 +187,7 @@ func (h *CommandHandler) HandleCommand(request map[string]interface{}) (map[stri
 
 		if value == "" {
 			// If it does this, you are doing something very very wrong!!
-			response = map[string]interface{}{"status": "NOT_FOUND"}
+			response = map[string]interface{}{"status": "ERROR", "message": "Not Found!"}
 		} else {
 			response = map[string]interface{}{"status": "OK", "value": value}
 		}
