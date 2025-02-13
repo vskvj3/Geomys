@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -80,10 +79,10 @@ func main() {
 
 	// create database and command handler
 	db := core.NewDatabase()
-	commadHandler := core.NewCommandHandler(db)
+	commandHandler := core.NewCommandHandler(db)
 
 	// Create the network server
-	server, err := network.NewServer(*joinPtr, commadHandler)
+	server, err := network.NewServer(*joinPtr, port, commandHandler)
 	if err != nil {
 		logger.Error("Server creation failed: " + err.Error())
 		return
@@ -91,7 +90,7 @@ func main() {
 
 	// Create grpc clustering and replication server instances
 	clusterServer := cluster.NewGrpcServer(int32(nodeID), int32(grpcPort))
-	replicationServer := replicate.NewReplicationServer(commadHandler)
+	replicationServer := replicate.NewReplicationServer(commandHandler)
 
 	switch {
 	case *bootstrapPtr:
@@ -115,29 +114,34 @@ func main() {
 		logger.Info("Starting standalone node...")
 	}
 
-	// Attempt to bind to the configured port
-	listener, err := net.Listen("tcp", ":"+port)
-	if err != nil {
-		logger.Warn("Port " + port + " unavailable. Selecting a random port...")
-		listener, err = net.Listen("tcp", ":0")
-		if err != nil {
-			logger.Error("Error starting server: " + err.Error())
-			return
-		}
-	}
-	defer listener.Close()
-	logger.Info("Server is listening on " + listener.Addr().String())
+	// // Attempt to bind to the configured port
+	// listener, err := net.Listen("tcp", ":"+port)
+	// if err != nil {
+	// 	logger.Warn("Port " + port + " unavailable. Selecting a random port...")
+	// 	listener, err = net.Listen("tcp", ":0")
+	// 	if err != nil {
+	// 		logger.Error("Error starting server: " + err.Error())
+	// 		return
+	// 	}
+	// }
+	// defer listener.Close()
+	// logger.Info("Server is listening on " + listener.Addr().String())
 
-	// Accept incoming connections
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			logger.Error("Error accepting connection: " + err.Error())
-			continue
-		}
-		logger.Info("Accepted client: " + conn.RemoteAddr().String())
-		go server.HandleConnection(conn)
-	}
+	// // Accept incoming connections
+	// for {
+	// 	conn, err := listener.Accept()
+	// 	if err != nil {
+	// 		logger.Error("Error accepting connection: " + err.Error())
+	// 		continue
+	// 	}
+	// 	logger.Info("Accepted client: " + conn.RemoteAddr().String())
+	// 	go server.HandleConnection(conn)
+	// }
+
+	// Start the TCP server
+	go server.Start()
+
+	select {}
 }
 
 // Joins an existing cluster (Follower Node) and starts sending heartbeats
