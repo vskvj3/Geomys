@@ -48,7 +48,7 @@ func TestIntegration(t *testing.T) {
 	// Start the server
 	go func() {
 		utils.LoadConfig("configPath")
-		server, _ := network.NewServer("", "6379", commandHandler)
+		server, _ := network.NewServer(nil, "6379", commandHandler)
 		server.Start()
 	}()
 	time.Sleep(100 * time.Millisecond)

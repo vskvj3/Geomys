@@ -103,7 +103,12 @@ func (c *GrpcClient) MonitorLeader(server *GrpcServer) {
 // StartLeaderElection initiates the leader election process
 func (c *GrpcClient) StartLeaderElection(server *GrpcServer) {
 	logger := utils.GetLogger()
+	config, err := utils.GetConfig()
+	if err != nil {
+		logger.Error("Failed to load configs for leader election")
+	}
 	logger.Info("Starting leader election...")
+	config.IsLeader = false
 
 	// Increment election term
 	server.CurrentTerm++
@@ -175,6 +180,7 @@ func (c *GrpcClient) StartLeaderElection(server *GrpcServer) {
 
 	if smallestNode == int32(server.NodeID) {
 		logger.Info("I am the new leader! Managing followers...")
+		config.IsLeader = true
 		go server.MonitorFollowers()
 	} else {
 		// Connect to the new leader

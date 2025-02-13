@@ -2,12 +2,13 @@ package network
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/vmihailenco/msgpack/v5"
+	"github.com/vskvj3/geomys/internal/cluster"
 	"github.com/vskvj3/geomys/internal/core"
 	"github.com/vskvj3/geomys/internal/replicate"
 	"github.com/vskvj3/geomys/internal/replicate/proto"
@@ -16,17 +17,21 @@ import (
 
 type Server struct {
 	CommandHandler *core.CommandHandler
-	LeaderAddr     string
+	grpcServer     *cluster.GrpcServer
 	Port           string
 }
 
-func NewServer(leaderAddr, port string, handler *core.CommandHandler) (*Server, error) {
-	fmt.Println("Leader address: " + leaderAddr)
+func NewServer(grpcServer *cluster.GrpcServer, port string, handler *core.CommandHandler) (*Server, error) {
 	logger := utils.GetLogger()
 	config, err := utils.GetConfig()
-
 	if err != nil {
 		logger.Error("Loading config in server failed: " + err.Error())
+	}
+	var leaderAddr string
+	if grpcServer != nil {
+		leaderAddr = strconv.Itoa(grpcServer.LeaderID)
+	} else {
+		leaderAddr = ""
 	}
 
 	// Rebuild from persistence if standalone mode, else request sync from leader
@@ -48,7 +53,7 @@ func NewServer(leaderAddr, port string, handler *core.CommandHandler) (*Server, 
 	// Start database cleanup (to remove expired keys)
 	handler.Database.StartCleanup(100 * time.Millisecond)
 
-	return &Server{CommandHandler: handler, LeaderAddr: leaderAddr, Port: port}, nil
+	return &Server{CommandHandler: handler, grpcServer: grpcServer, Port: port}, nil
 }
 
 // Start the TCP server and listen for client connections
@@ -125,10 +130,10 @@ func (s *Server) HandleConnection(conn net.Conn) {
 		}
 
 		// If not the leader and command is a write, forward it to the leader
-		if !config.IsLeader && s.LeaderAddr != "" && isWriteCommand(command) {
+		if !config.IsLeader && s.grpcServer != nil && s.grpcServer.LeaderID != -1 && isWriteCommand(command) {
 			logger.Info("Forwarding write request to leader node")
 
-			replicationClient, err := replicate.NewReplicationClient(s.LeaderAddr)
+			replicationClient, err := replicate.NewReplicationClient(strconv.Itoa(s.grpcServer.LeaderID))
 			if err != nil {
 				logger.Error("Replication client creation failed: " + err.Error())
 				s.sendError(conn, "Failed to connect to leader")
