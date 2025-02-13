@@ -165,8 +165,7 @@ func (h *CommandHandler) HandleCommand(request map[string]interface{}) (map[stri
 		}
 
 		if value == "" {
-			// If it does this, you are doing something very very wrong!!
-			response = map[string]interface{}{"status": "ERROR", "message": "Not Found!"}
+			return nil, errors.New("no value returned")
 		} else {
 			response = map[string]interface{}{"status": "OK", "value": value}
 		}
@@ -186,8 +185,7 @@ func (h *CommandHandler) HandleCommand(request map[string]interface{}) (map[stri
 		}
 
 		if value == "" {
-			// If it does this, you are doing something very very wrong!!
-			response = map[string]interface{}{"status": "ERROR", "message": "Not Found!"}
+			return nil, errors.New("no value returned")
 		} else {
 			response = map[string]interface{}{"status": "OK", "value": value}
 		}
