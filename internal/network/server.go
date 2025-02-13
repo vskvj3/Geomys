@@ -2,9 +2,9 @@ package network
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net"
-	"strconv"
 	"time"
 
 	"github.com/vmihailenco/msgpack/v5"
@@ -23,25 +23,33 @@ type Server struct {
 
 func NewServer(grpcServer *cluster.GrpcServer, port string, handler *core.CommandHandler) (*Server, error) {
 	logger := utils.GetLogger()
+
+	// Load configuration
 	config, err := utils.GetConfig()
 	if err != nil {
-		logger.Error("Loading config in server failed: " + err.Error())
-	}
-	var leaderAddr string
-	if grpcServer != nil {
-		leaderAddr = strconv.Itoa(grpcServer.LeaderID)
-	} else {
-		leaderAddr = ""
+		return nil, fmt.Errorf("failed to load config: %v", err)
 	}
 
-	// Rebuild from persistence if standalone mode, else request sync from leader
+	var leaderAddr string
+	if grpcServer != nil {
+		leaderAddr = grpcServer.Nodes[int32(grpcServer.LeaderID)]
+	}
+
+	if handler.Database == nil {
+		return nil, fmt.Errorf("database is not initialized")
+	}
+
+	// Rebuild from persistence if standalone mode, else sync from leader
 	if !config.IsLeader && leaderAddr != "" {
 		replicationClient, err := replicate.NewReplicationClient(leaderAddr)
 		if err != nil {
-			logger.Error("Replication client creation failed: " + err.Error())
+			return nil, fmt.Errorf("failed to create replication client: %v", err)
 		}
-		logger.Info("Re-syncing from leader node...")
-		replicationClient.SyncRequest(handler)
+
+		logger.Info("Re-syncing from leader at " + leaderAddr)
+		if err := replicationClient.SyncRequest(handler); err != nil {
+			return nil, fmt.Errorf("sync request failed: %v", err)
+		}
 	} else {
 		if err := handler.Database.RebuildFromPersistence(); err != nil {
 			logger.Warn("Could not read from persistence: " + err.Error())
@@ -50,8 +58,8 @@ func NewServer(grpcServer *cluster.GrpcServer, port string, handler *core.Comman
 		}
 	}
 
-	// Start database cleanup (to remove expired keys)
 	handler.Database.StartCleanup(100 * time.Millisecond)
+	logger.Info("TCP server initialized on port " + port)
 
 	return &Server{CommandHandler: handler, grpcServer: grpcServer, Port: port}, nil
 }
@@ -129,29 +137,29 @@ func (s *Server) HandleConnection(conn net.Conn) {
 			continue
 		}
 
+		var replicationClient *replicate.ReplicationClient
+		protoCommand := &proto.Command{Command: command}
+		if key, ok := request["key"].(string); ok {
+			protoCommand.Key = key
+		}
+		if value, ok := request["value"].(string); ok {
+			protoCommand.Value = value
+		}
+		if exp, ok := request["exp"].(int64); ok {
+			protoCommand.Exp = int32(exp)
+		}
+		if offset, ok := request["offset"].(int64); ok {
+			protoCommand.Offset = int32(offset)
+		}
 		// If not the leader and command is a write, forward it to the leader
-		if !config.IsLeader && s.grpcServer != nil && s.grpcServer.LeaderID != -1 && isWriteCommand(command) {
+		if !config.IsLeader && s.grpcServer != nil && isWriteCommand(command) {
 			logger.Info("Forwarding write request to leader node")
 
-			replicationClient, err := replicate.NewReplicationClient(strconv.Itoa(s.grpcServer.LeaderID))
+			replicationClient, err = replicate.NewReplicationClient(s.grpcServer.Nodes[int32(s.grpcServer.LeaderID)])
 			if err != nil {
 				logger.Error("Replication client creation failed: " + err.Error())
 				s.sendError(conn, "Failed to connect to leader")
 				continue
-			}
-
-			protoCommand := &proto.Command{Command: command}
-			if key, ok := request["key"].(string); ok {
-				protoCommand.Key = key
-			}
-			if value, ok := request["value"].(string); ok {
-				protoCommand.Value = value
-			}
-			if exp, ok := request["exp"].(int64); ok {
-				protoCommand.Exp = int32(exp)
-			}
-			if offset, ok := request["offset"].(int64); ok {
-				protoCommand.Offset = int32(offset)
 			}
 
 			response, err := replicationClient.ForwardRequest(int32(config.NodeID), protoCommand)
@@ -171,6 +179,10 @@ func (s *Server) HandleConnection(conn net.Conn) {
 			s.sendError(conn, err.Error())
 		} else {
 			s.sendResponse(conn, response)
+			if config.IsLeader && s.grpcServer.LeaderID != -1 {
+				replicationClient.ReplicateToFollowers(protoCommand, s.grpcServer)
+			}
+
 		}
 	}
 }

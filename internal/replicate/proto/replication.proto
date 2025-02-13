@@ -42,7 +42,7 @@ service ReplicationService {
     rpc ForwardRequest (CommandRequest) returns (CommandResponse);
 
     // Leader → Followers (Replicate Write Requests)
-    rpc ReplicateRequest (CommandRequest) returns (ReplicationAck);
+    rpc ReplicateRequest (Command) returns (ReplicationAck);
 
     // Follower → Leader (Sync on Restart)
     rpc SyncRequest (SyncRequestMessage) returns (SyncResponse);

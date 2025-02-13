@@ -10,6 +10,7 @@ import (
 	"github.com/vskvj3/geomys/internal/replicate/proto"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 // ReplicationClient is used by followers to communicate with the leader
@@ -19,7 +20,7 @@ type ReplicationClient struct {
 
 // NewReplicationClient initializes a gRPC client connection
 func NewReplicationClient(leaderAddress string) (*ReplicationClient, error) {
-	conn, err := grpc.Dial(leaderAddress, grpc.WithInsecure(), grpc.WithBlock())
+	conn, err := grpc.NewClient(leaderAddress, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
 	if err != nil {
 		return nil, err
 	}
@@ -45,6 +46,39 @@ func (c *ReplicationClient) ForwardRequest(node_id int32, command *proto.Command
 	}
 
 	return resp, nil
+}
+
+func (c *ReplicationClient) ReplicateRequest(command *proto.Command) (*proto.ReplicationAck, error) {
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	resp, err := c.client.ReplicateRequest(ctx, command)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// Helper function to replicate writes to all followers
+func (c *ReplicationClient) ReplicateToFollowers(command *proto.Command, cluster ClusterNodeProvider) error {
+	fmt.Println(command)
+	for _, followerAddr := range cluster.GetFollowerNodes() {
+		client, err := NewReplicationClient(followerAddr)
+		if err != nil {
+			log.Printf("Error connecting to follower %s: %v", followerAddr, err)
+			continue
+		}
+
+		_, err = client.ReplicateRequest(command)
+		if err != nil {
+			log.Printf("Error replicating to follower %s: %v", followerAddr, err)
+		} else {
+			log.Printf("success")
+		}
+	}
+	return nil
 }
 
 // SyncRequest is called when a follower restarts to get the latest data
@@ -78,10 +112,5 @@ func (c *ReplicationClient) SyncRequest(commandHandler *core.CommandHandler) err
 		}
 	}
 
-	return nil
-}
-
-func (*ReplicationClient) ReplicateRequest(req *proto.CommandRequest) error {
-	fmt.Println("I dont know what this supposed to do")
 	return nil
 }

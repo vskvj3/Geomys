@@ -60,12 +60,34 @@ func (s *ReplicationServer) ForwardRequest(ctx context.Context, req *proto.Comma
 }
 
 // ReplicateRequest is called by the leader to sync a command to followers
-func (s *ReplicationServer) ReplicateRequest(ctx context.Context, req *proto.CommandRequest) (*proto.ReplicationAck, error) {
-	// test := make(map[string]interface{}, 0)
-	// _, err := commandHandler.HandleCommand(test)
-	// if err != nil {
-	// 	return nil, err
-	// }
+func (s *ReplicationServer) ReplicateRequest(ctx context.Context, command *proto.Command) (*proto.ReplicationAck, error) {
+	test := make(map[string]interface{}, 0)
+	_, err := s.CommandHandler.HandleCommand(test)
+	if err != nil {
+		return nil, err
+	}
+	// Convert gRPC request into a map
+	commandData := map[string]interface{}{
+		"command": strings.ToUpper(command.Command),
+	}
+	if command.Key != "" {
+		commandData["key"] = command.Key
+	}
+	if command.Value != "" {
+		commandData["value"] = command.Value
+	}
+	if command.Exp > 0 {
+		commandData["exp"] = command.Exp
+	}
+	if command.Offset != 0 {
+		commandData["offset"] = command.Offset
+	}
+
+	// Execute the command using commandHandler
+	_, err = s.CommandHandler.HandleCommand(commandData)
+	if err != nil {
+		return nil, err
+	}
 
 	return &proto.ReplicationAck{Success: true}, nil
 }
@@ -108,21 +130,4 @@ func (s *ReplicationServer) SyncRequest(ctx context.Context, req *proto.SyncRequ
 
 	// Return response
 	return &proto.SyncResponse{Commands: commands}, nil
-}
-
-// Helper function to replicate writes to all followers
-func (s *ReplicationServer) replicateToFollowers(req *proto.CommandRequest, cluster ClusterNodeProvider) error {
-	for _, followerAddr := range cluster.GetFollowerNodes() {
-		client, err := NewReplicationClient(followerAddr)
-		if err != nil {
-			log.Printf("Error connecting to follower %s: %v", followerAddr, err)
-			continue
-		}
-
-		err = client.ReplicateRequest(req)
-		if err != nil {
-			log.Printf("Error replicating to follower %s: %v", followerAddr, err)
-		}
-	}
-	return nil
 }
