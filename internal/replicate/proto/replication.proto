@@ -20,7 +20,9 @@ message CommandRequest {
 
 // Response for command execution
 message CommandResponse {
-    string message = 1;
+    string status = 1;
+    string message = 2;
+    string value = 3;
 }
 
 // Acknowledgment for replication success

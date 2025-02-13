@@ -30,15 +30,17 @@ func (s *ReplicationServer) ForwardRequest(ctx context.Context, command *proto.C
 	}
 
 	// Extract message/value from response
-	message := "OK"
+	protoResponse := proto.CommandResponse{Status: response["status"].(string)}
+
 	if msg, ok := response["message"].(string); ok {
-		message = msg
-	} else if val, ok := response["value"].(string); ok {
-		message = val
+		protoResponse.Message = msg
+	}
+	if val, ok := response["value"].(string); ok {
+		protoResponse.Value = val
 	}
 
 	// Return the final response
-	return &proto.CommandResponse{Message: message}, nil
+	return &protoResponse, nil
 }
 
 // ReplicateRequest is called by the leader to sync a command to followers
