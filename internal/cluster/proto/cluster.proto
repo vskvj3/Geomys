@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package cluster;
+
+option go_package = "internal/cluster/proto";
+
+/*****************************************************************
+*                        ElectionService                         *
+*****************************************************************/
+service ElectionService {
+    rpc RequestVote (VoteRequest) returns (VoteResponse);
+    rpc Heartbeat (HeartbeatRequest) returns (HeartbeatResponse);
+}
+
+message VoteRequest {
+    int32 node_id = 1;
+    int32 term = 2; 
+}
+
+message VoteResponse {
+    int32 smallest_node = 1; 
+}
+
+message HeartbeatRequest {
+    int32 node_id = 1;
+    int32 port = 2;
+    int32 term = 3; 
+}
+
+message HeartbeatResponse {
+    bool success = 1;
+    map<int32, string> nodes = 2; 
+}
+
+/*****************************************************************
+*                      ReplicationService                        *
+*****************************************************************/
+service ReplicationService {
+    rpc ForwardRequest (CommandRequest) returns (CommandResponse);
+    rpc ReplicateRequest (Command) returns (ReplicationAck);
+    rpc SyncRequest (SyncRequestMessage) returns (SyncResponse);
+}
+
+message Command {
+    string command = 1;
+    string key = 2;
+    string value = 3;
+    int32 exp = 4;
+    int32 offset = 5;
+}
+
+message CommandRequest {
+    int32 node_id = 1;
+    Command command = 2;
+}
+
+message CommandResponse {
+    string status = 1;
+    string message = 2;
+    string value = 3;
+}
+
+message ReplicationAck {
+    bool success = 1;
+}
+
+message SyncRequestMessage {}
+
+message SyncResponse {
+    repeated Command commands = 1;
+}

@@ -3,12 +3,14 @@ package main
 import (
 	"flag"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/vskvj3/geomys/internal/cluster"
+	"github.com/vskvj3/geomys/internal/cluster/election"
+	"github.com/vskvj3/geomys/internal/core"
 	"github.com/vskvj3/geomys/internal/network"
 	"github.com/vskvj3/geomys/internal/utils"
 )
@@ -16,29 +18,29 @@ import (
 func main() {
 	logger := utils.NewLogger("", true)
 
-	// Load configurations
+	// Load Configurations
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		logger.Error("Error getting home directory: " + err.Error())
 		return
 	}
 	configPath := filepath.Join(homeDir, ".geomys", "geomys.conf")
+	utils.LoadConfig(configPath)
 
-	config, err := utils.LoadConfig(configPath)
+	config, err := utils.GetConfig()
 	if err != nil {
 		logger.Error("Error loading configuration: " + err.Error())
 		return
 	}
 	logger.Info("Loaded configurations from " + configPath)
 
-	// Parse command-line arguments
+	// Parse Command-Line Flags
 	nodeIdPtr := flag.String("node_id", "", "Node ID of the current node")
-	portPtr := flag.String("port", "", "Port of server")
-	bootstrapPtr := flag.Bool("bootstrap", false, "Start cluster in bootstrap mode (initial leader)")
+	portPtr := flag.String("port", "", "Port of the server")
+	bootstrapPtr := flag.Bool("bootstrap", false, "Start cluster in bootstrap mode (leader)")
 	joinPtr := flag.String("join", "", "Join an existing cluster (provide leader address in <ip:port>)")
 	flag.Parse()
 
-	// Ensure only one of `bootstrap` or `join` is set
 	if *bootstrapPtr && *joinPtr != "" {
 		logger.Error("Cannot use both -bootstrap and -join. Choose only one.")
 		return
@@ -47,97 +49,82 @@ func main() {
 	// Determine Node ID
 	nodeID := config.NodeID
 	if *nodeIdPtr != "" {
-		nodeID, err = strconv.Atoi(*nodeIdPtr)
+		parsedID, err := strconv.Atoi(*nodeIdPtr)
 		if err != nil {
 			logger.Error("Invalid node_id: must be an integer")
 			return
 		}
+		nodeID = parsedID
+		config.NodeID = nodeID
 	}
 	logger.Info(fmt.Sprintf("Node ID assigned: %d", nodeID))
 
 	// Determine Port
-	port := strconv.Itoa(config.InternalPort)
+	port := config.InternalPort
 	if *portPtr != "" {
-		port = *portPtr
-		config.InternalPort, err = strconv.Atoi(*portPtr)
-		if err != nil {
-			logger.Warn("Invalid port value. Using default from config.")
+		parsedPort, err := strconv.Atoi(*portPtr)
+		if err == nil {
+			port = parsedPort
+			config.InternalPort = port
+			config.ExternalPort = port + 1000
 		} else {
-			config.ExternalPort = config.InternalPort + 1000
+			logger.Warn("Invalid port value. Using default from config.")
 		}
 	}
-	logger.Info("Port assigned: " + port)
+	logger.Info("TCP Port assigned: " + strconv.Itoa(config.InternalPort))
+	logger.Info("gRPC Port assigned: " + strconv.Itoa(config.ExternalPort))
 
-	grpcPort, err := strconv.Atoi(port)
-	if err != nil {
-		logger.Error("Port must be an integer: " + err.Error())
-		return
-	}
-	grpcPort += 1000 // Ensure gRPC port offset
+	// Initialize Core Components
+	db := core.NewDatabase()
+	commandHandler := core.NewCommandHandler(db)
 
-	// Create clustering server instance
-	clusterServer := cluster.NewGrpcServer(int32(nodeID), int32(grpcPort))
+	// Initialize Cluster and Replication Servers
+	clusterServer := cluster.NewClusterServer(int32(nodeID), int32(config.ExternalPort))
 
-	switch {
-	case *bootstrapPtr:
-		// Bootstrap Mode (Start the Leader Node)
+	// Configure Node Mode (Bootstrap, Join, or Standalone)
+	if *bootstrapPtr {
 		logger.Info("Starting in bootstrap mode (leader)...")
-		clusterServer.LeaderID = nodeID
-		go clusterServer.StartServer(grpcPort) // Start gRPC server as leader
-		go clusterServer.MonitorFollowers()
-	case *joinPtr != "":
-		// Join Mode (Follower Node)
+		config.IsLeader = true
+		config.ClusterMode = true
+		clusterServer.SetLeaderAddress("")
+		clusterServer.SetLeaderID(int32(nodeID))
+		// start grpc server in leader mode
+		go clusterServer.StartServer(commandHandler)
+
+		// wait for 15 seconds, and start monitoring followers
+		time.Sleep(15 * time.Second)
+		go clusterServer.ElectionService.MonitorFollowers()
+	} else if *joinPtr != "" {
 		logger.Info("Joining existing cluster at " + *joinPtr)
-		go clusterServer.StartServer(grpcPort) // Start gRPC server as follower
-		if err := joinCluster(*joinPtr, clusterServer); err != nil {
-			logger.Error("Failed to join cluster: " + err.Error())
+		config.IsLeader = false
+		config.ClusterMode = true
+		clusterServer.SetLeaderAddress(*joinPtr)
+		// start grpc server in follower mode
+		go clusterServer.StartServer(commandHandler)
+
+		// wait for 15 seconds, and start monitoring leader
+		time.Sleep(15 * time.Second)
+
+		client, err := election.NewElectionClient(*joinPtr)
+		if err != nil {
+			logger.Error("Failed to connect to leader: " + err.Error())
 			return
 		}
-	default:
-		// Standalone Mode
+		go client.MonitorLeader(clusterServer.ElectionService)
+	} else {
 		logger.Info("Starting standalone node...")
 	}
 
-	// Attempt to bind to the configured port
-	listener, err := net.Listen("tcp", ":"+port)
+	// Start TCP Server
+	logger.Debug("Initializing TCP server on port " + strconv.Itoa(port))
+	server, err := network.NewServer(clusterServer, strconv.Itoa(port), commandHandler)
 	if err != nil {
-		logger.Warn("Port " + port + " unavailable. Selecting a random port...")
-		listener, err = net.Listen("tcp", ":0")
-		if err != nil {
-			logger.Error("Error starting server: " + err.Error())
-			return
-		}
-	}
-	defer listener.Close()
-	logger.Info("Server is listening on " + listener.Addr().String())
-
-	// Create the network server
-	server, err := network.NewServer()
-	if err != nil {
-		logger.Error("Server creation failed: " + err.Error())
+		logger.Error("TCP Server creation failed: " + err.Error())
 		return
 	}
+	logger.Debug("Starting TCP server...")
+	go server.Start()
 
-	// Accept incoming connections
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			logger.Error("Error accepting connection: " + err.Error())
-			continue
-		}
-		logger.Info("Accepted client: " + conn.RemoteAddr().String())
-		go server.HandleConnection(conn)
-	}
-}
-
-// Joins an existing cluster (Follower Node) and starts sending heartbeats
-func joinCluster(leaderAddr string, clusterServer *cluster.GrpcServer) error {
-	client, err := cluster.NewGrpcClient(leaderAddr)
-	if err != nil {
-		return fmt.Errorf("failed to connect to leader: %v", err)
-	}
-
-	// Start monitoring leader status
-	go client.MonitorLeader(clusterServer)
-	return nil
+	// Block forever to keep the server running
+	select {}
 }

@@ -1,4 +1,4 @@
-package cluster
+package election
 
 import (
 	"context"
@@ -6,36 +6,36 @@ import (
 	"log"
 	"time"
 
-	pb "github.com/vskvj3/geomys/internal/cluster/proto" // Import generated gRPC code
+	"github.com/vskvj3/geomys/internal/cluster/proto"
+	pb "github.com/vskvj3/geomys/internal/cluster/proto"
 	"github.com/vskvj3/geomys/internal/utils"
-
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-type GrpcClient struct {
+// ElectionClient facilitates leader election
+type ElectionClient struct {
 	Conn          *grpc.ClientConn
-	Client        pb.NodeServiceClient
-	LeaderID      int
+	Client        proto.ElectionServiceClient
 	LastHeartbeat time.Time
 }
 
 // NewGrpcClient establishes a connection with a node's gRPC server
-func NewGrpcClient(address string) (*GrpcClient, error) {
+func NewElectionClient(address string) (*ElectionClient, error) {
 	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect: %v", err)
 	}
-	client := pb.NewNodeServiceClient(conn)
-	return &GrpcClient{Conn: conn, Client: client}, nil
+	client := pb.NewElectionServiceClient(conn)
+	return &ElectionClient{Conn: conn, Client: client}, nil
 }
 
 // RequestVote sends a leader election vote request to another node
-func (c *GrpcClient) RequestVote(nodeID int, term int32) int32 {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+func (c *ElectionClient) RequestVote(nodeID int32, term int32) int32 {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	resp, err := c.Client.RequestVote(ctx, &pb.VoteRequest{NodeId: int32(nodeID), Term: term})
+	resp, err := c.Client.RequestVote(ctx, &pb.VoteRequest{NodeId: nodeID, Term: term})
 	if err != nil {
 		log.Printf("Vote request failed from Node %d: %v", nodeID, err)
 		return -1 // Return -1 to indicate failure
@@ -44,9 +44,9 @@ func (c *GrpcClient) RequestVote(nodeID int, term int32) int32 {
 }
 
 // SendHeartbeat sends a heartbeat to the current leader
-func (c *GrpcClient) SendHeartbeat(server *GrpcServer) bool {
-	nodeID := server.NodeID
-	port := server.Port
+func (c *ElectionClient) SendHeartbeat(server *ElectionServer) bool {
+	nodeID := server.Cluster.GetNodeID()
+	port := server.Cluster.GetPort()
 	logger := utils.GetLogger()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -59,13 +59,13 @@ func (c *GrpcClient) SendHeartbeat(server *GrpcServer) bool {
 
 	// Detect new nodes joining
 	for newNodeID, addr := range resp.Nodes {
-		if _, exists := server.Nodes[newNodeID]; !exists {
+		if _, exists := server.Cluster.GetNodes()[newNodeID]; !exists {
 			logger.Info(fmt.Sprintf("New node detected: Node %d at %s", newNodeID, addr))
 		}
 	}
 
 	// Detect nodes leaving
-	for existingNodeID := range server.Nodes {
+	for existingNodeID := range server.Cluster.GetNodes() {
 		if _, stillAlive := resp.Nodes[existingNodeID]; !stillAlive {
 			logger.Warn(fmt.Sprintf("Node %d has left the cluster", existingNodeID))
 		}
@@ -73,12 +73,12 @@ func (c *GrpcClient) SendHeartbeat(server *GrpcServer) bool {
 
 	// Update heartbeat and cluster state
 	c.LastHeartbeat = time.Now()
-	server.Nodes = resp.Nodes
+	server.Cluster.SetNodes(resp.Nodes)
 	return resp.Success
 }
 
 // MonitorLeader continuously sends heartbeats and checks for leader failure
-func (c *GrpcClient) MonitorLeader(server *GrpcServer) {
+func (c *ElectionClient) MonitorLeader(server *ElectionServer) {
 	logger := utils.GetLogger()
 	for {
 		success := c.SendHeartbeat(server)
@@ -91,7 +91,7 @@ func (c *GrpcClient) MonitorLeader(server *GrpcServer) {
 				c.StartLeaderElection(server)
 
 				// If this node becomes the leader, stop monitoring and start managing followers
-				if c.LeaderID == int(server.NodeID) {
+				if server.Cluster.GetLeaderID() == server.Cluster.GetNodeID() {
 					return
 				}
 			}
@@ -101,31 +101,33 @@ func (c *GrpcClient) MonitorLeader(server *GrpcServer) {
 }
 
 // StartLeaderElection initiates the leader election process
-func (c *GrpcClient) StartLeaderElection(server *GrpcServer) {
+func (c *ElectionClient) StartLeaderElection(server *ElectionServer) {
 	logger := utils.GetLogger()
+	config, err := utils.GetConfig()
+	if err != nil {
+		logger.Error("Failed to load configs for leader election")
+	}
 	logger.Info("Starting leader election...")
-
-	// Increment election term
-	server.CurrentTerm++
+	config.IsLeader = false
 
 	// Map to track votes from other nodes
 	votes := make(map[int32]bool)
 	var smallestNode int32 = -1
 
 	// Request votes from all other nodes
-	for nodeID, addr := range server.Nodes {
-		if nodeID == server.NodeID {
+	for nodeID, addr := range server.Cluster.GetNodes() {
+		if nodeID == server.Cluster.GetNodeID() {
 			continue // Skip self
 		}
 
-		client, err := NewGrpcClient(addr)
+		client, err := NewElectionClient(addr)
 		if err != nil {
 			logger.Warn(fmt.Sprintf("Failed to connect to Node %d for vote request", nodeID))
 			continue
 		}
 
 		// Request vote
-		votedNode := client.RequestVote(int(server.NodeID), server.CurrentTerm)
+		votedNode := client.RequestVote(server.Cluster.GetNodeID(), server.CurrentTerm)
 		client.Conn.Close()
 
 		// Ignore invalid votes
@@ -163,7 +165,7 @@ func (c *GrpcClient) StartLeaderElection(server *GrpcServer) {
 	// Confirm the selected leader is alive
 	if !c.ConfirmLeader(smallestNode, server) {
 		logger.Warn(fmt.Sprintf("Leader %d is not responding. Restarting election...", smallestNode))
-		delete(server.Nodes, smallestNode)
+		delete(server.Cluster.GetNodes(), smallestNode)
 		time.Sleep(3 * time.Second)
 		c.StartLeaderElection(server)
 		return
@@ -171,14 +173,19 @@ func (c *GrpcClient) StartLeaderElection(server *GrpcServer) {
 
 	// Successfully elected leader
 	logger.Info(fmt.Sprintf("Node %d is elected as the new leader!", smallestNode))
-	c.LeaderID = int(smallestNode)
+	server.Cluster.SetLeaderID(smallestNode)
+	server.Cluster.SetLeaderAddress(server.Cluster.GetNodes()[smallestNode])
 
-	if smallestNode == int32(server.NodeID) {
+	if smallestNode == server.Cluster.GetNodeID() {
 		logger.Info("I am the new leader! Managing followers...")
+		config.IsLeader = true
+
+		// wait for 15 seconds, and then start monitoring followers
+		time.Sleep(5 * time.Second)
 		go server.MonitorFollowers()
 	} else {
 		// Connect to the new leader
-		newLeaderAddr, exists := server.Nodes[smallestNode]
+		newLeaderAddr, exists := server.Cluster.GetNodes()[smallestNode]
 		if !exists {
 			logger.Error("New leader's address is unknown.")
 			return
@@ -197,22 +204,22 @@ func (c *GrpcClient) StartLeaderElection(server *GrpcServer) {
 
 		// Update client connection
 		c.Conn = conn
-		c.Client = pb.NewNodeServiceClient(conn)
+		c.Client = pb.NewElectionServiceClient(conn)
 	}
 }
 
 // ConfirmLeader checks if the selected leader is still alive
-func (c *GrpcClient) ConfirmLeader(leaderID int32, server *GrpcServer) bool {
+func (c *ElectionClient) ConfirmLeader(leaderID int32, server *ElectionServer) bool {
 	logger := utils.GetLogger()
 	logger.Info(fmt.Sprintf("Confirming if Node %d is still alive...", leaderID))
 
-	leaderAddr, exists := server.Nodes[leaderID]
+	leaderAddr, exists := server.Cluster.GetNodes()[leaderID]
 	if !exists {
 		logger.Warn(fmt.Sprintf("Leader %d not found in nodes list.", leaderID))
 		return false
 	}
 
-	client, err := NewGrpcClient(leaderAddr)
+	client, err := NewElectionClient(leaderAddr)
 	if err != nil {
 		logger.Warn(fmt.Sprintf("Failed to connect to Leader %d.", leaderID))
 		return false

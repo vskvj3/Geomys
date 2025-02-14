@@ -1,13 +1,11 @@
 package core
 
 import (
-	"net"
+	"errors"
 	"strconv"
 	"strings"
 
-	"github.com/vmihailenco/msgpack/v5"
 	"github.com/vskvj3/geomys/internal/persistence"
-	"github.com/vskvj3/geomys/internal/utils"
 )
 
 type CommandHandler struct {
@@ -21,16 +19,15 @@ func NewCommandHandler(db *Database) *CommandHandler {
 }
 
 // HandleCommand processes client commands and sends appropriate responses
-func (h *CommandHandler) HandleCommand(conn net.Conn, request map[string]interface{}) {
+func (h *CommandHandler) HandleCommand(request map[string]interface{}) (map[string]interface{}, error) {
 	disk, err := persistence.CreateOrReplacePersistence()
 	if err != nil {
-		h.sendError(conn, "Could not access disk")
+		return nil, errors.New("could not access disk: " + err.Error())
 	}
 	// Process the command
 	command, ok := request["command"].(string)
 	if !ok {
-		h.sendError(conn, "Invalid or missing 'command' field")
-		return
+		return nil, errors.New("invalid or missing 'command' field")
 	}
 
 	command = strings.ToUpper(command)
@@ -43,14 +40,13 @@ func (h *CommandHandler) HandleCommand(conn net.Conn, request map[string]interfa
 	case "ECHO":
 		message, ok := request["message"].(string)
 		if !ok {
-			h.sendError(conn, "ECHO requires a 'message' field")
-			return
+			return nil, errors.New("ECHO requires a 'message' field")
 		}
 		response = map[string]interface{}{"status": "OK", "message": message}
 
 	case "SET":
 		if err := disk.LogRequest(request); err != nil {
-			h.sendError(conn, "Reuest logging to disk failed")
+			return nil, errors.New("reuest logging to disk failed")
 		}
 
 		key, keyOk := request["key"].(string)
@@ -75,31 +71,27 @@ func (h *CommandHandler) HandleCommand(conn net.Conn, request map[string]interfa
 			case uint32:
 				ttlMs = int64(v)
 			default:
-				h.sendError(conn, "Invalid type for TTL: "+v.(string))
+				return nil, errors.New("Invalid type for TTL: " + v.(string))
 			}
 		}
 
 		if !keyOk || !valueOk {
-			h.sendError(conn, "SET requires 'key', 'value' fields")
-			return
+			return nil, errors.New("SET requires 'key', 'value' fields")
 		}
 
 		if err := h.Database.Set(key, value, ttlMs); err != nil {
-			h.sendError(conn, err.Error())
-			return
+			return nil, errors.New("Set failed: " + err.Error())
 		}
 		response = map[string]interface{}{"status": "OK"}
 
 	case "GET":
 		key, ok := request["key"].(string)
 		if !ok {
-			h.sendError(conn, "GET requires a 'key' field")
-			return
+			return nil, errors.New("GET requires a 'key' field")
 		}
 		value, err := h.Database.Get(key)
 		if err != nil {
-			h.sendError(conn, err.Error())
-			return
+			return nil, errors.New("Get failed: " + err.Error())
 		}
 		if value == "" {
 			// If it does this, you are doing something very very wrong!!
@@ -110,33 +102,29 @@ func (h *CommandHandler) HandleCommand(conn net.Conn, request map[string]interfa
 
 	case "INCR":
 		if err := disk.LogRequest(request); err != nil {
-			h.sendError(conn, "Reuest logging to disk failed")
+			return nil, errors.New("reuest logging to disk failed")
 		}
 
 		key, keyOk := request["key"].(string)
-		offset, offsetOk := request["offset"].(string) // JSON numbers are unmarshaled as float64
+		offset, offsetOk := request["offset"].(string)
 
 		if !keyOk {
-			h.sendError(conn, "INCR requires a 'key' field")
-			return
+			return nil, errors.New("INCR requires a 'key' field")
 		}
 		if !offsetOk {
-			h.sendError(conn, "INCR requires an 'offset' field (integer)")
-			return
+			return nil, errors.New("INCR requires an 'offset' field (integer)")
 		}
 
 		// Convert offset to int
 		intOffset, err := strconv.Atoi(offset)
 		if err != nil {
-			h.sendError(conn, err.Error())
-			return
+			return nil, errors.New(err.Error())
 		}
 
 		// Call the Incr function
 		newValue, err := h.Database.Incr(key, intOffset)
 		if err != nil {
-			h.sendError(conn, err.Error())
-			return
+			return nil, errors.New(err.Error())
 		}
 
 		// Send the success response
@@ -147,65 +135,57 @@ func (h *CommandHandler) HandleCommand(conn net.Conn, request map[string]interfa
 
 	case "PUSH":
 		if err := disk.LogRequest(request); err != nil {
-			h.sendError(conn, "Reuest logging to disk failed")
+			return nil, errors.New("Push failed: " + "Reuest logging to disk failed: " + err.Error())
 		}
 
 		key, keyOk := request["key"].(string)
 		value, valueOk := request["value"].(string)
 
 		if !keyOk || !valueOk {
-			h.sendError(conn, "PUSH requires 'key', 'value' fields")
-			return
+			return nil, errors.New("PUSH requires 'key', 'value' fields")
 		}
 
 		if err := h.Database.Push(key, value); err != nil {
-			h.sendError(conn, err.Error())
-			return
+			return nil, errors.New("Push failed: " + err.Error())
 		}
 		response = map[string]interface{}{"status": "OK"}
 
 	case "LPOP":
 		if err := disk.LogRequest(request); err != nil {
-			h.sendError(conn, "Reuest logging to disk failed")
+			return nil, errors.New("reuest logging to disk failed")
 		}
 
 		key, ok := request["key"].(string)
 		if !ok {
-			h.sendError(conn, "LPOP requires a 'key' field")
-			return
+			return nil, errors.New("LPOP requires a 'key' field")
 		}
 		value, err := h.Database.Lpop(key)
 		if err != nil {
-			h.sendError(conn, err.Error())
-			return
+			return nil, errors.New("Lpop failed: " + err.Error())
 		}
 
 		if value == "" {
-			// If it does this, you are doing something very very wrong!!
-			response = map[string]interface{}{"status": "NOT_FOUND"}
+			return nil, errors.New("no value returned")
 		} else {
 			response = map[string]interface{}{"status": "OK", "value": value}
 		}
 
 	case "RPOP":
 		if err := disk.LogRequest(request); err != nil {
-			h.sendError(conn, "Reuest logging to disk failed")
+			return nil, errors.New("reuest logging to disk failed")
 		}
 
 		key, ok := request["key"].(string)
 		if !ok {
-			h.sendError(conn, "LPOP requires a 'key' field")
-			return
+			return nil, errors.New("LPOP requires a 'key' field")
 		}
 		value, err := h.Database.Rpop(key)
 		if err != nil {
-			h.sendError(conn, err.Error())
-			return
+			return nil, errors.New("Rpop failed: " + err.Error())
 		}
 
 		if value == "" {
-			// If it does this, you are doing something very very wrong!!
-			response = map[string]interface{}{"status": "NOT_FOUND"}
+			return nil, errors.New("no value returned")
 		} else {
 			response = map[string]interface{}{"status": "OK", "value": value}
 		}
@@ -213,7 +193,7 @@ func (h *CommandHandler) HandleCommand(conn net.Conn, request map[string]interfa
 	// warning: there should be some auth to perform this!!
 	case "FLUSHDB":
 		if err := disk.Clear(); err != nil {
-			h.sendError(conn, "Clearing persisted data failed: "+err.Error())
+			return nil, errors.New("Clearing persisted data failed: " + err.Error())
 		}
 
 		h.Database.Clear()
@@ -221,31 +201,9 @@ func (h *CommandHandler) HandleCommand(conn net.Conn, request map[string]interfa
 		response = map[string]interface{}{"status": "OK"}
 
 	default:
-		h.sendError(conn, "Unknown command")
-		return
+		return nil, errors.New("unknown command")
 	}
 
 	// Send the response
-	h.sendResponse(conn, response)
-}
-
-// sendResponse serializes the response and sends it to the client
-func (h *CommandHandler) sendResponse(conn net.Conn, response map[string]interface{}) {
-	logger := utils.GetLogger()
-
-	data, err := msgpack.Marshal(response)
-	if err != nil {
-		logger.Error("Failed to encode response: " + err.Error())
-		return
-	}
-	_, err = conn.Write(data)
-	if err != nil {
-		logger.Error("Failed to send response: " + err.Error())
-	}
-}
-
-// sendError sends an error message to the client
-func (h *CommandHandler) sendError(conn net.Conn, errorMessage string) {
-	response := map[string]interface{}{"status": "ERROR", "message": errorMessage}
-	h.sendResponse(conn, response)
+	return response, nil
 }

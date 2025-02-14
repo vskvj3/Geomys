@@ -2,12 +2,12 @@ package core
 
 import (
 	"errors"
-	"fmt"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/vskvj3/geomys/internal/persistence"
+	"github.com/vskvj3/geomys/internal/utils"
 )
 
 type Database struct {
@@ -211,6 +211,7 @@ func (db *Database) StartCleanup(interval time.Duration) {
 func (db *Database) RebuildFromPersistence() error {
 	// Load stored requests
 	disk, err := persistence.CreateOrReplacePersistence()
+	logger := utils.GetLogger()
 	if err != nil {
 		return err
 	}
@@ -218,7 +219,6 @@ func (db *Database) RebuildFromPersistence() error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("requests", requests)
 
 	// Replay each request using correct database function
 	for _, req := range requests {
@@ -229,7 +229,7 @@ func (db *Database) RebuildFromPersistence() error {
 			key := req["key"].(string)
 			offset, err := strconv.Atoi(req["offset"].(string))
 			if err != nil {
-				fmt.Println("Offset conversion failed in databse rebuild")
+				logger.Error("Offset conversion failed in databse rebuild")
 				break
 			}
 			db.Incr(key, offset)
