@@ -112,6 +112,8 @@ func main() {
 		}
 		go client.MonitorLeader(clusterServer.ElectionService)
 	} else {
+		config.IsLeader = true
+		config.ClusterMode = false
 		logger.Info("Starting standalone node...")
 	}
 

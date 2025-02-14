@@ -135,7 +135,7 @@ func (s *Server) HandleConnection(conn net.Conn) {
 		var replicationClient *replication.ReplicationClient
 
 		// If not the leader and command is a write, forward it to the leader
-		if !config.IsLeader && s.cluster != nil && isWriteCommand(command.Command) {
+		if config.ClusterMode && !config.IsLeader && s.cluster != nil && isWriteCommand(command.Command) {
 			logger.Info("Forwarding write request to leader node: " + s.cluster.LeaderAddress)
 
 			replicationClient, err = replication.NewReplicationClient(s.cluster.LeaderAddress)
