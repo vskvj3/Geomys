@@ -177,6 +177,8 @@ func (c *GrpcClient) StartLeaderElection(server *GrpcServer) {
 	// Successfully elected leader
 	logger.Info(fmt.Sprintf("Node %d is elected as the new leader!", smallestNode))
 	c.LeaderID = int(smallestNode)
+	server.LeaderID = c.LeaderID
+	server.LeaderAddress = server.Nodes[int32(c.LeaderID)]
 
 	if smallestNode == int32(server.NodeID) {
 		logger.Info("I am the new leader! Managing followers...")

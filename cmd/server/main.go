@@ -120,9 +120,10 @@ func startNodeMode(bootstrap bool, joinAddr string, clusterServer *cluster.GrpcS
 	switch {
 	case bootstrap:
 		logger.Info("Starting in bootstrap mode (leader)...")
-		clusterServer.LeaderID = nodeID
 		config.IsLeader = true
 		config.ClusterMode = true
+		clusterServer.LeaderAddress = ""
+		clusterServer.LeaderID = nodeID
 		go clusterServer.StartServer(int(clusterServer.Port), replicationServer)
 		go clusterServer.MonitorFollowers()
 
@@ -130,6 +131,7 @@ func startNodeMode(bootstrap bool, joinAddr string, clusterServer *cluster.GrpcS
 		logger.Info("Joining existing cluster at " + joinAddr)
 		config.IsLeader = false
 		config.ClusterMode = true
+		clusterServer.LeaderAddress = joinAddr
 		go clusterServer.StartServer(int(clusterServer.Port), replicationServer)
 		if err := joinCluster(joinAddr, clusterServer); err != nil {
 			logger.Error("Failed to join cluster: " + err.Error())

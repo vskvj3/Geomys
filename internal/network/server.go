@@ -30,7 +30,7 @@ func NewServer(grpcServer *cluster.GrpcServer, port string, handler *core.Comman
 
 	var leaderAddr string
 	if grpcServer != nil {
-		leaderAddr = grpcServer.Nodes[int32(grpcServer.LeaderID)]
+		leaderAddr = grpcServer.LeaderAddress
 	}
 
 	if handler.Database == nil {
@@ -136,9 +136,9 @@ func (s *Server) HandleConnection(conn net.Conn) {
 
 		// If not the leader and command is a write, forward it to the leader
 		if !config.IsLeader && s.grpcServer != nil && isWriteCommand(command.Command) {
-			logger.Info("Forwarding write request to leader node")
+			logger.Info("Forwarding write request to leader node: " + s.grpcServer.LeaderAddress)
 
-			replicationClient, err = replicate.NewReplicationClient(s.grpcServer.Nodes[int32(s.grpcServer.LeaderID)])
+			replicationClient, err = replicate.NewReplicationClient(s.grpcServer.LeaderAddress)
 			if err != nil {
 				logger.Error("Replication client creation failed: " + err.Error())
 				s.sendError(conn, "Failed to connect to leader")
@@ -152,6 +152,8 @@ func (s *Server) HandleConnection(conn net.Conn) {
 				continue
 			}
 
+			logger.Debug("Got response for forward request: ")
+			fmt.Println(response)
 			s.sendResponse(conn, map[string]interface{}{"message": response.Message})
 			continue
 		}
@@ -162,8 +164,8 @@ func (s *Server) HandleConnection(conn net.Conn) {
 			s.sendError(conn, err.Error())
 		} else {
 			s.sendResponse(conn, response)
-			if config.IsLeader && s.grpcServer.LeaderID != -1 {
-				replicationClient.ReplicateToFollowers(command, s.grpcServer)
+			if config.IsLeader && s.grpcServer.LeaderID == int(s.grpcServer.NodeID) {
+				replicate.ReplicateToFollowers(command, s.grpcServer)
 			}
 
 		}

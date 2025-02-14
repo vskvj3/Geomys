@@ -2,6 +2,7 @@ package replicate
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/vskvj3/geomys/internal/core"
 	"github.com/vskvj3/geomys/internal/persistence"
@@ -22,8 +23,12 @@ func NewReplicationServer(handler *core.CommandHandler) *ReplicationServer {
 }
 
 func (s *ReplicationServer) ForwardRequest(ctx context.Context, command *proto.CommandRequest) (*proto.CommandResponse, error) {
+	logger := utils.GetLogger()
+	logger.Debug("Recieved forward request")
+	fmt.Println(command)
 	requestMap := utils.ConvertCommandToRequest(command.Command)
 
+	// copy the request into database
 	response, err := s.CommandHandler.HandleCommand(requestMap)
 	if err != nil {
 		return nil, err
@@ -38,6 +43,8 @@ func (s *ReplicationServer) ForwardRequest(ctx context.Context, command *proto.C
 	if val, ok := response["value"].(string); ok {
 		protoResponse.Value = val
 	}
+	fmt.Println("sending response: ")
+	fmt.Println(protoResponse)
 
 	// Return the final response
 	return &protoResponse, nil

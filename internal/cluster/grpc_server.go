@@ -19,13 +19,14 @@ import (
 
 type GrpcServer struct {
 	pb.UnimplementedNodeServiceServer
-	NodeID      int32
-	LeaderID    int
-	Port        int32 // Server's port
-	VoteLock    sync.Mutex
-	Heartbeats  map[int]time.Time
-	CurrentTerm int32
-	Nodes       map[int32]string // Known nodes in the cluster
+	NodeID        int32
+	LeaderID      int
+	LeaderAddress string
+	Port          int32 // Server's port
+	VoteLock      sync.Mutex
+	Heartbeats    map[int]time.Time
+	CurrentTerm   int32
+	Nodes         map[int32]string // Known nodes in the cluster
 }
 
 // NewGrpcServer initializes a new gRPC server node
@@ -40,7 +41,6 @@ func NewGrpcServer(nodeID int32, port int32) *GrpcServer {
 	}
 }
 
-// RequestVote handles leader election requests
 // RequestVote handles leader election requests
 func (s *GrpcServer) RequestVote(ctx context.Context, req *pb.VoteRequest) (*pb.VoteResponse, error) {
 	logger := utils.GetLogger()
@@ -163,9 +163,4 @@ func (s *GrpcServer) cleanupInactiveNodes() {
 // in cluster/grpc_server.go
 func (s *GrpcServer) GetFollowerNodes() map[int32]string {
 	return s.Nodes
-}
-
-// TO IMPLEMENT
-func IsLeader() bool {
-	return true
 }

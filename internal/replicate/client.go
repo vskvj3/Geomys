@@ -68,7 +68,7 @@ func (c *ReplicationClient) ReplicateRequest(command *proto.Command) (*proto.Rep
 }
 
 // Helper function to replicate writes to all followers
-func (c *ReplicationClient) ReplicateToFollowers(command *proto.Command, cluster ClusterNodeProvider) error {
+func ReplicateToFollowers(command *proto.Command, cluster ClusterNodeProvider) error {
 	logger := utils.GetLogger()
 	for _, followerAddr := range cluster.GetFollowerNodes() {
 		client, err := NewReplicationClient(followerAddr)
