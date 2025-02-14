@@ -8,18 +8,18 @@ import (
 	"time"
 
 	"github.com/vskvj3/geomys/internal/cluster"
+	"github.com/vskvj3/geomys/internal/cluster/replication"
 	"github.com/vskvj3/geomys/internal/core"
-	"github.com/vskvj3/geomys/internal/replicate"
 	"github.com/vskvj3/geomys/internal/utils"
 )
 
 type Server struct {
 	CommandHandler *core.CommandHandler
-	grpcServer     *cluster.GrpcServer
+	cluster        *cluster.ClusterServer
 	Port           string
 }
 
-func NewServer(grpcServer *cluster.GrpcServer, port string, handler *core.CommandHandler) (*Server, error) {
+func NewServer(cluster *cluster.ClusterServer, port string, handler *core.CommandHandler) (*Server, error) {
 	logger := utils.GetLogger()
 
 	// Load configuration
@@ -29,8 +29,8 @@ func NewServer(grpcServer *cluster.GrpcServer, port string, handler *core.Comman
 	}
 
 	var leaderAddr string
-	if grpcServer != nil {
-		leaderAddr = grpcServer.LeaderAddress
+	if cluster != nil {
+		leaderAddr = cluster.LeaderAddress
 	}
 
 	if handler.Database == nil {
@@ -39,7 +39,7 @@ func NewServer(grpcServer *cluster.GrpcServer, port string, handler *core.Comman
 
 	// Rebuild from persistence if standalone mode, else sync from leader
 	if !config.IsLeader && leaderAddr != "" {
-		replicationClient, err := replicate.NewReplicationClient(leaderAddr)
+		replicationClient, err := replication.NewReplicationClient(leaderAddr)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create replication client: %v", err)
 		}
@@ -59,7 +59,7 @@ func NewServer(grpcServer *cluster.GrpcServer, port string, handler *core.Comman
 	handler.Database.StartCleanup(100 * time.Millisecond)
 	logger.Info("TCP server initialized on port " + port)
 
-	return &Server{CommandHandler: handler, grpcServer: grpcServer, Port: port}, nil
+	return &Server{CommandHandler: handler, cluster: cluster, Port: port}, nil
 }
 
 // Start the TCP server and listen for client connections
@@ -132,13 +132,13 @@ func (s *Server) HandleConnection(conn net.Conn) {
 			logger.Error("Request to command conversion failed")
 		}
 
-		var replicationClient *replicate.ReplicationClient
+		var replicationClient *replication.ReplicationClient
 
 		// If not the leader and command is a write, forward it to the leader
-		if !config.IsLeader && s.grpcServer != nil && isWriteCommand(command.Command) {
-			logger.Info("Forwarding write request to leader node: " + s.grpcServer.LeaderAddress)
+		if !config.IsLeader && s.cluster != nil && isWriteCommand(command.Command) {
+			logger.Info("Forwarding write request to leader node: " + s.cluster.LeaderAddress)
 
-			replicationClient, err = replicate.NewReplicationClient(s.grpcServer.LeaderAddress)
+			replicationClient, err = replication.NewReplicationClient(s.cluster.LeaderAddress)
 			if err != nil {
 				logger.Error("Replication client creation failed: " + err.Error())
 				s.sendError(conn, "Failed to connect to leader")
@@ -152,9 +152,18 @@ func (s *Server) HandleConnection(conn net.Conn) {
 				continue
 			}
 
+			responseMap := map[string]interface{}{"status": response.Status}
+
+			if msg := response.Message; msg != "" {
+				responseMap["value"] = msg
+			}
+			if val := response.Value; val != "" {
+				responseMap["value"] = val
+			}
+
 			logger.Debug("Got response for forward request: ")
 			fmt.Println(response)
-			s.sendResponse(conn, map[string]interface{}{"message": response.Message})
+			s.sendResponse(conn, responseMap)
 			continue
 		}
 
@@ -164,8 +173,8 @@ func (s *Server) HandleConnection(conn net.Conn) {
 			s.sendError(conn, err.Error())
 		} else {
 			s.sendResponse(conn, response)
-			if config.IsLeader && s.grpcServer.LeaderID == int(s.grpcServer.NodeID) {
-				replicate.ReplicateToFollowers(command, s.grpcServer)
+			if config.IsLeader && s.cluster.LeaderID == s.cluster.NodeID && isWriteCommand(command.Command) {
+				replication.ReplicateToFollowers(command, s.cluster.ReplicationService)
 			}
 
 		}

@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	"github.com/vmihailenco/msgpack/v5"
-	"github.com/vskvj3/geomys/internal/replicate/proto"
+	"github.com/vskvj3/geomys/internal/cluster/proto"
 )
 
 // ConvertRequestToCommand converts a request map to a proto.Command

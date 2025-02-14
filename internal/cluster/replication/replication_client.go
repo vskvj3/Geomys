@@ -1,4 +1,4 @@
-package replicate
+package replication
 
 import (
 	"context"
@@ -6,15 +6,15 @@ import (
 	"log"
 	"time"
 
+	"github.com/vskvj3/geomys/internal/cluster/proto"
 	"github.com/vskvj3/geomys/internal/core"
-	"github.com/vskvj3/geomys/internal/replicate/proto"
 	"github.com/vskvj3/geomys/internal/utils"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-// ReplicationClient is used by followers to communicate with the leader
+// ReplicationClient enables followers to communicate with the leader
 type ReplicationClient struct {
 	client proto.ReplicationServiceClient
 }
@@ -68,9 +68,9 @@ func (c *ReplicationClient) ReplicateRequest(command *proto.Command) (*proto.Rep
 }
 
 // Helper function to replicate writes to all followers
-func ReplicateToFollowers(command *proto.Command, cluster ClusterNodeProvider) error {
+func ReplicateToFollowers(command *proto.Command, server *ReplicationServer) error {
 	logger := utils.GetLogger()
-	for _, followerAddr := range cluster.GetFollowerNodes() {
+	for _, followerAddr := range server.Cluster.GetNodes() {
 		client, err := NewReplicationClient(followerAddr)
 		if err != nil {
 			logger.Error(fmt.Sprintf("Error connecting to follower %s: %v", followerAddr, err))

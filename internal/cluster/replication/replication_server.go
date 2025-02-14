@@ -1,27 +1,41 @@
-package replicate
+package replication
 
 import (
 	"context"
 	"fmt"
 
+	"github.com/vskvj3/geomys/internal/cluster/proto"
 	"github.com/vskvj3/geomys/internal/core"
 	"github.com/vskvj3/geomys/internal/persistence"
-	"github.com/vskvj3/geomys/internal/replicate/proto"
 	"github.com/vskvj3/geomys/internal/utils"
 )
+
+// interface to implement clusterServer functions
+type ClusterInterface interface {
+	GetNodeID() int32
+	GetLeaderID() int32
+	SetLeaderID(id int32)
+	GetLeaderAddress() string
+	SetLeaderAddress(addr string)
+	GetNodes() map[int32]string
+	GetPort() int32
+	AddNode(nodeID int32, addr string)
+	SetNodes(map[int32]string)
+}
 
 // ReplicationServer handles leader-follower replication
 type ReplicationServer struct {
 	proto.UnimplementedReplicationServiceServer
+	Cluster        ClusterInterface
 	CommandHandler *core.CommandHandler
 }
 
-func NewReplicationServer(handler *core.CommandHandler) *ReplicationServer {
+func NewReplicationServer(server ClusterInterface, handler *core.CommandHandler) *ReplicationServer {
 	return &ReplicationServer{
 		CommandHandler: handler,
+		Cluster:        server,
 	}
 }
-
 func (s *ReplicationServer) ForwardRequest(ctx context.Context, command *proto.CommandRequest) (*proto.CommandResponse, error) {
 	logger := utils.GetLogger()
 	logger.Debug("Recieved forward request")
@@ -43,8 +57,9 @@ func (s *ReplicationServer) ForwardRequest(ctx context.Context, command *proto.C
 	if val, ok := response["value"].(string); ok {
 		protoResponse.Value = val
 	}
-	fmt.Println("sending response: ")
-	fmt.Println(protoResponse)
+
+	// replicate the request to followers
+	ReplicateToFollowers(command.Command, s)
 
 	// Return the final response
 	return &protoResponse, nil

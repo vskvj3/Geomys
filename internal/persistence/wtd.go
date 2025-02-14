@@ -211,7 +211,7 @@ func (p *Persistence) LoadRequests() ([]map[string]interface{}, error) {
 	}
 
 	if len(requests) == 0 {
-		return nil, errors.New("no data found in binary log")
+		return nil, nil
 	}
 
 	return requests, nil
