@@ -122,6 +122,12 @@ func (c *ClusterServer) AddNode(nodeID int32, addr string) {
 	c.Nodes[nodeID] = addr
 }
 
+func (c *ClusterServer) RemodeNode(nodeID int32) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	delete(c.Nodes, nodeID)
+}
+
 // Change nodes list
 func (c *ClusterServer) SetNodes(newNodes map[int32]string) {
 	c.mu.Lock()

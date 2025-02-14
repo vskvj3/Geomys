@@ -22,6 +22,7 @@ type ClusterInterface interface {
 	GetNodes() map[int32]string
 	GetPort() int32
 	AddNode(nodeID int32, addr string)
+	RemodeNode(nodeID int32)
 	SetNodes(map[int32]string)
 }
 
@@ -130,6 +131,7 @@ func (s *ElectionServer) cleanupInactiveNodes() {
 		if time.Since(lastHeartbeat) > 15*time.Second {
 			logger.Info(fmt.Sprintf("Node %d seems to be down. Removing from cluster", nodeID))
 			delete(s.Heartbeats, nodeID)
+			s.Cluster.RemodeNode(nodeID)
 		}
 	}
 }
