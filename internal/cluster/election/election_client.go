@@ -6,7 +6,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/vskvj3/geomys/internal/cluster/proto"
 	pb "github.com/vskvj3/geomys/internal/cluster/proto"
 	"github.com/vskvj3/geomys/internal/utils"
 	"google.golang.org/grpc"
@@ -16,7 +15,7 @@ import (
 // ElectionClient facilitates leader election
 type ElectionClient struct {
 	Conn          *grpc.ClientConn
-	Client        proto.ElectionServiceClient
+	Client        pb.ElectionServiceClient
 	LastHeartbeat time.Time
 }
 
