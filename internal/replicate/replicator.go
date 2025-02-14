@@ -45,16 +45,12 @@ func (s *ReplicationServer) ForwardRequest(ctx context.Context, command *proto.C
 
 // ReplicateRequest is called by the leader to sync a command to followers
 func (s *ReplicationServer) ReplicateRequest(ctx context.Context, command *proto.Command) (*proto.ReplicationAck, error) {
-	test := make(map[string]interface{}, 0)
-	_, err := s.CommandHandler.HandleCommand(test)
-	if err != nil {
-		return nil, err
-	}
+
 	// Convert gRPC request into a map
 	requestMap := utils.ConvertCommandToRequest(command)
 
 	// Execute the command using commandHandler
-	_, err = s.CommandHandler.HandleCommand(requestMap)
+	_, err := s.CommandHandler.HandleCommand(requestMap)
 	if err != nil {
 		return nil, err
 	}

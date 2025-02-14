@@ -8,6 +8,7 @@ import (
 
 	"github.com/vskvj3/geomys/internal/core"
 	"github.com/vskvj3/geomys/internal/replicate/proto"
+	"github.com/vskvj3/geomys/internal/utils"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -49,9 +50,14 @@ func (c *ReplicationClient) ForwardRequest(node_id int32, command *proto.Command
 }
 
 func (c *ReplicationClient) ReplicateRequest(command *proto.Command) (*proto.ReplicationAck, error) {
+	if command == nil || command.Command == "" {
+		return nil, fmt.Errorf("invalid or missing 'command' field in ReplicateRequest")
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+
+	fmt.Printf("Sending ReplicateRequest: %+v\n", command) // Print command details
 
 	resp, err := c.client.ReplicateRequest(ctx, command)
 	if err != nil {
@@ -63,19 +69,19 @@ func (c *ReplicationClient) ReplicateRequest(command *proto.Command) (*proto.Rep
 
 // Helper function to replicate writes to all followers
 func (c *ReplicationClient) ReplicateToFollowers(command *proto.Command, cluster ClusterNodeProvider) error {
-	fmt.Println(command)
+	logger := utils.GetLogger()
 	for _, followerAddr := range cluster.GetFollowerNodes() {
 		client, err := NewReplicationClient(followerAddr)
 		if err != nil {
-			log.Printf("Error connecting to follower %s: %v", followerAddr, err)
+			logger.Error(fmt.Sprintf("Error connecting to follower %s: %v", followerAddr, err))
 			continue
 		}
 
 		_, err = client.ReplicateRequest(command)
 		if err != nil {
-			log.Printf("Error replicating to follower %s: %v", followerAddr, err)
+			logger.Error(fmt.Sprintf("Error replicating to follower %s: %v", followerAddr, err))
 		} else {
-			log.Printf("success")
+			logger.Info("Replication success")
 		}
 	}
 	return nil
