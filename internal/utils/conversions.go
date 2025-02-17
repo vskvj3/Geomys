@@ -24,8 +24,8 @@ func ConvertRequestToCommand(request map[string]interface{}) (*proto.Command, er
 	if exp, ok := request["exp"].(int64); ok {
 		protoCommand.Exp = int32(exp)
 	}
-	if offset, ok := request["offset"].(int64); ok {
-		protoCommand.Offset = int32(offset)
+	if offset, ok := request["offset"].(string); ok {
+		protoCommand.Offset = offset
 	}
 
 	return protoCommand, nil
@@ -45,7 +45,7 @@ func ConvertCommandToRequest(cmd *proto.Command) map[string]interface{} {
 	if cmd.Exp != 0 {
 		request["exp"] = cmd.Exp
 	}
-	if cmd.Offset != 0 {
+	if cmd.Offset != "" {
 		request["offset"] = cmd.Offset
 	}
 

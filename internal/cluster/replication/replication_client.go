@@ -106,7 +106,7 @@ func (c *ReplicationClient) SyncRequest(commandHandler *core.CommandHandler) err
 			"command": command.Command,
 			"key":     command.Key,
 			"value":   command.Value,
-			"offset":  int(command.Offset), // Convert int32 to int
+			"offset":  command.Offset, // Convert int32 to int
 		}
 
 		// Execute command in database
