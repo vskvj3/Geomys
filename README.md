@@ -2,14 +2,6 @@
 Geomys is a **distributed in-memory key-value store** that supports **leader-follower replication, persistence, and multi-node clustering**. It ensures **high availability and eventual consistency** across nodes using **gRPC-based data replication**.  
 
 ---
-You can add an index (table of contents) at the beginning of your README for easy navigation. Use Markdown links to jump to different sections. Here's how you can modify your README:
-
----
-
-# **Geomys**  
-Geomys is a **distributed in-memory key-value store** that supports **leader-follower replication, persistence, and multi-node clustering**. It ensures **high availability and eventual consistency** across nodes using **gRPC-based data replication**.  
-
----
 
 ## **Table of Contents**  
 - [Features](#features)  
@@ -63,9 +55,6 @@ Geomys is a **distributed in-memory key-value store** that supports **leader-fol
   - Exposes a gRPC API for cluster communication.
 
 For more detailed design overview, see [this](docs/Design.md)  
-
----
-Here's the edited **Building and Installation** section, aligned with your `Taskfile.yaml`:
 
 ---
 
