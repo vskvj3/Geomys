@@ -1,4 +1,4 @@
-# Geomys 
+# **Geomys**  
 Geomys is a **distributed in-memory key-value store** that supports **leader-follower replication, persistence, and multi-node clustering**. It ensures **high availability and eventual consistency** across nodes using **gRPC-based data replication**.  
 
 ---
@@ -8,11 +8,11 @@ Geomys is a **distributed in-memory key-value store** that supports **leader-fol
 - [Architecture Overview](#architecture-overview)  
 - [Building and Installation](#building-and-installation)  
   - [Prerequisites](#prerequisites)  
-  - [Clone the Repository](#1-clone-the-repository)  
-  - [Install Dependencies](#2-install-dependencies)   
+  - [Clone the Repository](#clone-the-repository)  
+  - [Install Dependencies](#install-dependencies)  
   - [Build Using Task](#build-using-task)  
-  - [Manual Build](#manual-build)    
-  - [Run In Docker](#run-in-docker)  
+  - [Manual Build](#manual-build)  
+  - [Run in Docker](#run-in-docker)  
 - [Configuration](#configuration)  
 - [Testing](#testing)  
 - [Directory Structure](#directory-structure)  
@@ -48,9 +48,9 @@ Geomys is a **distributed in-memory key-value store** that supports **leader-fol
   - **Persistence layer** writes changes to disk for durability.  
 
 - **Networking (`internal/network`)**  
-  - Exposes a gRPC API for cluster communication.
+  - Exposes a gRPC API for cluster communication.  
 
-For more detailed design overview, see [this](docs/Design.md)  
+For a more detailed design overview, see [this](docs/Design.md).  
 
 ---
 
@@ -62,16 +62,16 @@ Geomys uses [Go Task](https://taskfile.dev/) as the build tool.
 - Task 3  
 - Proto3 (optional)  
 
-### **Clone the repository**  
+### **Clone the Repository**  
 ```sh
 git clone https://github.com/vskvj3/geomys.git
 cd geomys
-```
+```  
 
-### **Install dependencies**  
+### **Install Dependencies**  
 ```sh
 go mod tidy
-``` 
+```  
 
 ### **Build Using Task**  
 You can build and run Geomys using Task:  
@@ -79,54 +79,54 @@ You can build and run Geomys using Task:
 - **Run the server:**  
   ```sh
   task server
-  ```
+  ```  
 
 - **Run the client:**  
   ```sh
   task client
-  ```
+  ```  
 
 - **Build the server binary:**  
   ```sh
   task build-server
-  ```
+  ```  
 
 - **Build the client binary:**  
   ```sh
   task build-client
-  ```
+  ```  
 
 - **Build both server and client binaries:**  
   ```sh
   task build
-  ```
+  ```  
 
 - **Clean the build directory:**  
   ```sh
   task clean
-  ```
+  ```  
 
 ### **Manual Build**  
 If you prefer building manually, run:  
 ```sh
 go build -o build/geomys-server.exe ./cmd/server
 go build -o build/geomys-client.exe ./cmd/client
-```
+```  
 
-### **Run in Docker** 
-- Build Docker image
-```sh
-task docker-build
-```
-- Run the Docker container
-```sh
-task docker-run
-```
+### **Run in Docker**  
+- **Build Docker image**  
+  ```sh
+  task docker-build
+  ```  
+- **Run the Docker container**  
+  ```sh
+  task docker-run
+  ```  
+- **Remove Docker images**  
+  ```sh
+  task docker-clean
+  ```  
 
-- Remove Docker images
-```sh
-task docker-clean
-```
 ---
 
 ## **Configuration**  
@@ -138,7 +138,7 @@ Example configuration:
 node_id: 1
 cluster_mode: true
 log_level: "info"
-```
+```  
 
 ---
 
@@ -147,12 +147,12 @@ log_level: "info"
 Run unit and integration tests:  
 ```sh
 task test
-```
+```  
 
 Run specific test files:  
 ```sh
 go test ./tests/integration/integration_test.go
-```
+```  
 
 ---
 
@@ -176,13 +176,11 @@ geomys/
 ├── tests/                # Unit and integration tests
 │
 └── docker-compose.yaml   # Docker setup
-```
+```  
 
 ---
 
 ## **TODOs & Future Work**  
- 
-- [ ] Improve **fault tolerance** and automatic recovery  
-- [ ] Add **more data structures** like sorted sets  
 
----
+- [ ] Improve **fault tolerance** and automatic recovery  
+- [ ] Add **Transaction Support** 
