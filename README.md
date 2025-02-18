@@ -9,14 +9,10 @@ Geomys is a **distributed in-memory key-value store** that supports **leader-fol
 - [Building and Installation](#building-and-installation)  
   - [Prerequisites](#prerequisites)  
   - [Clone the Repository](#1-clone-the-repository)  
-  - [Install Dependencies](#2-install-dependencies)  
-- [Building Geomys](#building-geomys)  
-  - [Using Task](#using-task)  
-  - [Manual Build](#manual-build)  
-- [Running Geomys](#running-geomys)  
-  - [Start the Server](#start-the-server)  
-  - [Start a Client](#start-a-client)  
-  - [Using Docker](#with-docker)  
+  - [Install Dependencies](#2-install-dependencies)   
+  - [Build Using Task](#build-using-task)  
+  - [Manual Build](#manual-build)    
+  - [Run In Docker](#run-in-docker)  
 - [Configuration](#configuration)  
 - [Testing](#testing)  
 - [Directory Structure](#directory-structure)  
@@ -66,22 +62,18 @@ Geomys uses [Go Task](https://taskfile.dev/) as the build tool.
 - Task 3  
 - Proto3 (optional)  
 
-### **1. Clone the repository**  
+### **Clone the repository**  
 ```sh
 git clone https://github.com/vskvj3/geomys.git
 cd geomys
 ```
 
-### **2. Install dependencies**  
+### **Install dependencies**  
 ```sh
 go mod tidy
-```
+``` 
 
----
-
-## **Building Geomys**  
-
-### **Using Task**  
+### **Build Using Task**  
 You can build and run Geomys using Task:  
 
 - **Run the server:**  
@@ -121,26 +113,7 @@ go build -o build/geomys-server.exe ./cmd/server
 go build -o build/geomys-client.exe ./cmd/client
 ```
 
----
-
-## **Running Geomys**  
-
-### **Start the server**  
-```sh
-./build/geomys-server.exe
-```
-
-### **Start a client**  
-```sh
-./build/geomys-client.exe
-```
-
-Alternatively, run the client using Task:  
-```sh
-task client
-```
-
-### **With Docker** 
+### **Run in Docker** 
 - Build Docker image
 ```sh
 task docker-build
