@@ -72,7 +72,7 @@ func getDefaultConfig() *Config {
 	return &Config{
 		InternalPort:  6379,
 		DefaultExpiry: 60000,
-		Persistence:   "bufferedwrite",
+		Persistence:   "Writethroughdisk",
 		Replication:   false,
 		Sharding:      false,
 		IsLeader:      false,

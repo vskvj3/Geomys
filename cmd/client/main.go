@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json" // Import JSON package
 	"errors"
 	"flag"
 	"fmt"
@@ -126,13 +127,10 @@ func argParser(input string) (Request, error) {
 }
 
 func main() {
-	// Define a port flag with a default value of 6379
 	port := flag.Int("port", 6379, "Port number of the server")
-	flag.Parse() // Parse the command-line flags
+	flag.Parse()
 
 	serverAddr := fmt.Sprintf("localhost:%d", *port)
-
-	// Connect to the server using the specified port
 	conn, err := net.Dial("tcp", serverAddr)
 	if err != nil {
 		fmt.Printf("Error connecting to server on port %d: %v\n", *port, err)
@@ -159,6 +157,16 @@ func main() {
 			fmt.Printf("Error: %v\n", err)
 			continue
 		}
+
+		// Convert request struct to JSON and print
+		reqJSON, err := json.MarshalIndent(req, "", "  ")
+		if err != nil {
+			fmt.Printf("Error converting request to JSON: %v\n", err)
+			continue
+		}
+
+		fmt.Println("\nRequest JSON:")
+		fmt.Println(string(reqJSON))
 
 		data, err := msgpack.Marshal(req)
 		if err != nil {
@@ -187,23 +195,17 @@ func main() {
 			continue
 		}
 
-		status, _ := serverResponse["status"].(string)
-		switch status {
-		case "OK":
-			if message, ok := serverResponse["message"].(string); ok {
-				fmt.Printf("Server: %s\n", message)
-			} else if value, ok := serverResponse["value"].(string); ok {
-				fmt.Printf("Server: %s\n", value)
-			} else {
-				fmt.Println("Server: OK")
-			}
-		case "ERROR":
-			fmt.Printf("Server Error: %s\n", serverResponse["message"])
-		default:
-			fmt.Printf("Unexpected server response: %v\n", serverResponse)
+		// Convert response to JSON and print
+		responseJSON, err := json.MarshalIndent(serverResponse, "", "  ")
+		if err != nil {
+			fmt.Printf("Error converting response to JSON: %v\n", err)
+			continue
 		}
 
-		fmt.Printf("Response time: %d ms\n", responseTime)
+		fmt.Println("\nResponse JSON:")
+		fmt.Println(string(responseJSON))
+
+		fmt.Printf("\nResponse time: %d ms\n", responseTime)
 	}
 
 	fmt.Println("Closing connection.")
