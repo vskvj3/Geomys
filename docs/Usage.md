@@ -1,41 +1,41 @@
-## **Starting the Software**  
-### **Standalone Mode**  
+## Starting the Software 
+### Standalone Mode 
 ```sh
 geomys --node_id=1 --port=1000
 ```
 - The `node_id` is optional.
 
-### **Cluster Mode**  
-#### **Bootstrapping the Leader Node**  
+### Cluster Mode  
+#### Bootstrapping the Leader Node 
 > [!NOTE]
 > The internal port (used by client software) must be provided. If omitted, the node defaults to port `6973`.  
 ```sh
 geomys --node_id=1 --port=1000 --bootstrap
 ```
 
-#### **Joining as a Follower**  
+#### Joining as a Follower 
 - **Note:** When joining, you must use the **external port** of the leader node.  
   - If the leader node uses port `1000`, its **external port** is `2000`.  
   - By default:  
     ```sh
     External port = Internal port + 1000
     ```
-##### **Follower 1**  
+##### Follower 1
 ```sh
 geomys --node_id=2 --port=1010 --join="127.0.0.1:2000"
 ```
-##### **Follower 2**  
+##### Follower 2
 ```sh
 geomys --node_id=3 --port=1015 --join="127.0.0.1:2000"
 ```
 
 ---
 
-## **Configurations**  
+## Configurations
 Basic configurations can be set in a configuration file.  
 - By default, configurations are stored in the `.geomys` folder inside the home directory.  
 
-### **Example: `geomys.conf`**  
+### Example: `geomys.conf` 
 ```json
 {
   "internal_port": 6379,
@@ -52,9 +52,9 @@ Basic configurations can be set in a configuration file.
 
 ---
 
-## **Basic Commands**  
+## Basic Commands  
 
-### **PING**  
+### PING  
 ```json
 {
   "Command": "PING",
@@ -65,7 +65,7 @@ Basic configurations can be set in a configuration file.
   "Offset": null
 }
 ```
-#### **Response:**  
+#### Response:  
 ```json
 {
   "message": "PONG",
@@ -75,7 +75,7 @@ Basic configurations can be set in a configuration file.
 
 ---
 
-### **ECHO**  
+### ECHO
 ```json
 {
   "Command": "ECHO",
@@ -86,7 +86,7 @@ Basic configurations can be set in a configuration file.
   "Offset": null
 }
 ```
-#### **Response:**  
+#### Response:  
 ```json
 {
   "message": "hi",
@@ -96,7 +96,7 @@ Basic configurations can be set in a configuration file.
 
 ---
 
-### **GET**  
+### GET
 ```json
 {
   "Command": "GET",
@@ -107,14 +107,14 @@ Basic configurations can be set in a configuration file.
   "Offset": null
 }
 ```
-#### **Success Response:**  
+#### Success Response: 
 ```json
 {
   "status": "OK",
   "value": "value"
 }
 ```
-#### **Error Response:**  
+#### Error Response:
 ```json
 {
   "message": "Get failed: key not found",
@@ -124,7 +124,7 @@ Basic configurations can be set in a configuration file.
 
 ---
 
-### **SET**  
+### SET
 ```json
 {
   "Command": "SET",
@@ -135,7 +135,7 @@ Basic configurations can be set in a configuration file.
   "Offset": null
 }
 ```
-#### **Success Response:**  
+#### Success Response: 
 ```json
 {
   "status": "OK"
@@ -144,7 +144,7 @@ Basic configurations can be set in a configuration file.
 
 ---
 
-### **INCR**  
+### INCR 
 - `INCR` requires an **offset** value.  
 ```json
 {
@@ -156,14 +156,14 @@ Basic configurations can be set in a configuration file.
   "Offset": "1"
 }
 ```
-#### **Success Response:**  
+#### Success Response:
 ```json
 {
   "status": "OK",
   "value": 2
 }
 ```
-#### **Error (Non-Integer Value):**  
+#### Error (Non-Integer Value):
 ```json
 {
   "message": "Value is not an integer",
@@ -173,7 +173,7 @@ Basic configurations can be set in a configuration file.
 
 ---
 
-### **PUSH**  
+### PUSH 
 - **Adds an element to the start** of a doubly-ended queue (deque).  
 - If the list does not exist, it is created.  
 ```json
@@ -186,7 +186,7 @@ Basic configurations can be set in a configuration file.
   "Offset": null
 }
 ```
-#### **Response:**  
+#### Response: 
 ```json
 {
   "status": "OK"
@@ -195,7 +195,7 @@ Basic configurations can be set in a configuration file.
 
 ---
 
-### **RPOP**  
+### RPOP
 - **Removes and returns** an element from the **right-hand side** of the list.  
 - **Non-blocking** (returns an error if the list is empty).  
 ```json
@@ -208,7 +208,7 @@ Basic configurations can be set in a configuration file.
   "Offset": null
 }
 ```
-#### **Success Response:**  
+#### Success Response: 
 ```json
 {
   "status": "OK",
@@ -218,7 +218,7 @@ Basic configurations can be set in a configuration file.
 
 ---
 
-### **LPOP**  
+### LPOP 
 - **Removes and returns** an element from the **left-hand side** of the list.  
 - **Non-blocking** (returns an error if the list is empty).  
 ```json
@@ -231,14 +231,14 @@ Basic configurations can be set in a configuration file.
   "Offset": null
 }
 ```
-#### **Success Response:**  
+#### Success Response:
 ```json
 {
   "status": "OK",
   "value": "1"
 }
 ```
-#### **Error (List Does Not Exist):**  
+#### Error (List Does Not Exist):
 ```json
 {
   "message": "LPOP failed: list is empty",
@@ -248,7 +248,7 @@ Basic configurations can be set in a configuration file.
 
 ---
 
-### **FLUSHDB**  
+### FLUSHDB 
 > [!WARNING]
 > `FLUSHDB` **clears the entire database**, including persisted disk data.  
 ```json
@@ -261,7 +261,7 @@ Basic configurations can be set in a configuration file.
   "Offset": null
 }
 ```
-#### **Response:**  
+#### Response:
 ```json
 {
   "status": "OK"

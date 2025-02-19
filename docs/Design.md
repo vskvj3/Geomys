@@ -123,34 +123,65 @@ res: {'status': 'OK', 'value': '3'}
 ## Collision Behavior
 This section explains the behavior of the basic **SET** command:
 - If the key **already exists**:
-    - Returns an error.
-- If the key **does not exist**:
-    - Creates a new key and stores the value.
+    - Nothing happens, rewrites the value.
 
 ## Persistence
-### Storage Methods
-1. **Write-Through Disk**
-2. **Buffered Writes**
-
-- Persisted databases are stored by default at `HOME:/.geomys/persistence.db`.
-- Commands are stored after binary encoding.
-
+- Persisted data is used to regenerate database when the system restarts.
 ### Write-Through Disk
+- Persisted databases are stored by default at `HOME:/.geomys/<node_id>/binlog.dat`.
+-  Every write operation (`SET`, `PUSH`, `INCR`, etc.) is **logged in a structured binary format**.
 - Every write operation to the cache is immediately written to persistent storage.
-- It has significant write overhead.
+- If enabled, it has significant write overhead.
 - Highest I/O overhead and slower command execution.
-- More reliable than **Buffered Writes**.
 - Commands are stored in an **append-only file**, which is replayed upon server restart to restore the database.
 
-### Buffered Writes
-- Faster command execution.
-- Data is grouped into batches and written at regular intervals.
-- Data loss may occur if a failure happens before the last write.
-- Preferable when some data loss is acceptable, and lower latency is required.
+### How data is encoded?
+#### Binary Log Structure
+Each command is stored in the following **binary format**:
+| Field        | Size (bytes)    | Description  |
+|-------------|---------------|-------------|
+| Command Length | 4  | Length of the command string (e.g., `"SET"`). |
+| Command | Variable | The actual command (e.g., `"SET"`). |
+| Key Length | 4 | Length of the key string. |
+| Key | Variable | The actual key (e.g., `"mykey"`). |
+| Value Length | 4 | Length of the value string (if present). |
+| Value | Variable | The actual value (e.g., `"hello"`). |
+| Offset Length | 4 | Length of the offset string (if present). |
+| Offset | Variable | The actual offset value (if applicable). |
+| End Marker | 4 | `"EOF\0"` (hex: `0x45, 0x4F, 0x46, 0x00`) marks the end of a command entry. |
 
-> Both persistence methods currently use an **append-only file** to store data.
-- Only **one persistence mechanism** can be active at a time.
-- By default, **no persistence is enabled**; it must be activated via a config file.
+Consider the following command being stored:
+```json
+{
+  "Command": "SET",
+  "Key": "mykey",
+  "Value": "hello"
+}
+```
+It will be stored in binary format as:
+
+| Field | Binary Representation |
+|--------|----------------------|
+| Command Length | `0x03 0x00 0x00 0x00` (3 bytes: `"SET"`) |
+| Command | `"SET"` (`0x53 0x45 0x54`) |
+| Key Length | `0x05 0x00 0x00 0x00` (5 bytes: `"mykey"`) |
+| Key | `"mykey"` (`0x6D 0x79 0x6B 0x65 0x79`) |
+| Value Length | `0x05 0x00 0x00 0x00` (5 bytes: `"hello"`) |
+| Value | `"hello"` (`0x68 0x65 0x6C 0x6C 0x6F`) |
+| Offset Length | `0x00 0x00 0x00 0x00` (0 bytes, since offset is not provided) |
+| End Marker | `0x45 0x4F 0x46 0x00` (`"EOF\0"`) |
+
+- Which will result in the following hex dump:
+```mathematica
+03 00 00 00  53 45 54  
+05 00 00 00  6D 79 6B 65 79  
+05 00 00 00  68 65 6C 6C 6F  
+00 00 00 00  
+45 4F 46 00
+```
+
+- When the server restarts, it reads and reconstructs the stored commands from `binlog.dat` using `LoadRequests()`, replaying each operation to restore the last known state.
+
 
 ## High Availability Architecture
 The system follows a **Leader-Follower** architecture.
@@ -169,7 +200,7 @@ A leader is responsible for following tasks:
 ### Leader Election
 - Initially, the **node started in bootstrap mode** becomes the **default leader** (highest ID).
 - Followers send **heartbeats every 5 seconds** to the leader.
-- If the leader does not respond to **3 consecutive pings**, a new leader is elected.
+- If the leader does not respond within **15 seconds**, a new leader election procedure begins.
 - The **node with the highest ID** becomes the new leader, and replication resumes.
 
 ### Request Handling
@@ -211,53 +242,21 @@ The follower will connect to leader on port 7767(grpc port), if leader is found 
 - Same goes for the leader node, if it completely fails, there is no point in starting it again. since it is gone, a new follower will take its job, if we want to scale again, create a new follower to join the existsing cluster.
 
 ## Leader election:
-### Case 1:
-- Each node will have a list of nodes:
-- node will send heartbeat to followers in a specific time interval
-- if the leader does not respond, the node will know the leader is down, and starts an election
-- each node wil check the smallest node in the existing node list, and checks for the in request vote section, and grants vote to the smallest node id in its list. if the leader election fails, each node updates its nodes list by sending vote request to each node in nodes list. If any node does not respond, the node will be removed from the list
-leader elction algorithm client:
-- checks for the smallest node id in nodes list
-- if it is other node:
-    - sends canYouLeader request to the other node
-    - the node sends grants request if it is alive
-    - if the node is not alive, removes the node from the nodes list, and restarts the election
-- if is current node:
-    - starts node in leader mode
-
-
-### case 3 quorum based:
-- upon leader election starts, each node sends a voteRequest to all other nodes on the list.
-- If the node is not alive, it is remove from the nodes list.
-- If the node is alive:
-    - Reciever node: checks the term and node id, if it is smaller than its own node id, it grant vote, otherwise refuses.
-- If a node gets majority vote, it becomes leader, and sends a newLeader message to all other nodes.
-- If it does not gets majority vote, if listens for newleader message. if newLeader message is recieved, it updates its own leader, and if it does not recieve newLeader message, another election starts.
-
-### Case 3.2 
-- Same as above, it sends vote request to other nodes, if the vote it recieved is from the smallest node in its nodes list, it will send granted, or does not grants vote. when a node gets majority vote. it will sent new leader request to all other nodes on the list. all other nodes will agree on the list will update its nodes list
-
-### Case 4: Leader initiative:
-- Leader sends heartbeat to each of the followers, followers responds to the heartbeat.
-- Along with heart beat, the leader also sends existing nodes list to the follower, so the follower can update its nodes list.
-- Leader keeps the node list with the nodes that responds to the heartbeat with address and nodes id.
-- Upon the reciever does not recieve new heartbeat for 15 seconds, an election begins.
-- Each node sends an VoteRequest to each of the node in its nodes list. 
-- Upon recieving VoteRequest, the node wil grant the vote if its node id is the smallest in the nodes list.
-- If all the nodes agrees on a single node, it will elect that node as the smallest, and the election will conclude.
-
-### Final
 - Each follower will send heartbeat to the leader.
-- Leader will send the updated nodes list.
-- When leader goes down, a new election begins.
+- Leader will send the updated nodes list as a response to the heartbeat(so each node will have an updated nodes list).
+- When leader goes down(does not reply to heartbeat within 15 seconds), a new election begins.
 - Each node will send a VoteRequest to all the nodes in its nodes list.
 - Upon recieving this request, the nodes will check the smalllest node id in its list and send it back. 
-- If a node receives same node id from all the votes, it will be selected as the new leader. 
-- A canYouLeades message is send to this node by all the nodes, if the node grants the message, it will be new leader, else a new leader will election will start again(after removing that node from the list)
+- If a node receives same node id from all the votes, it will be selected as the new leader.
+- If the nodes cannot agree on the leader, node list is updated, and a new election begins.
+- Upon electing a leader, a heartbeat is send to the new leader as a indication of whether the leader is alive, if the leader is alive, nodes will connect to the new leader, if the leader  is not alive, the node is removed from the nodes list and a new leader election begins again.
+
 ## Upcoming Considerations
 ### Blocking & Non-Blocking Commands
-> In Redis, some commands block execution until a condition is met.
-> For example, **BLPOP** blocks the client until an element is available in the list.
-> - It can take a **timeout** value specifying when blocking ends.
-> - See [Redis BLPOP documentation](https://redis.io/docs/latest/commands/blpop/) for reference.
-
+In Redis, some commands block execution until a condition is met.
+For example, **BLPOP** blocks the client until an element is available in the list.
+- It can take a **timeout** value specifying when blocking ends.
+- See [Redis BLPOP documentation](https://redis.io/docs/latest/commands/blpop/) for reference.
+### Safe set
+- Set command that will send as error if the key already exists.
+- Is this meant to be an atomic compare-and-swap (SETNX equivalent).

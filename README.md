@@ -133,7 +133,7 @@ go build -o build/geomys-client.exe ./cmd/client
 
 Geomys loads its configuration from `~/.geomys/geomys.conf`.  
 
-> [!Warning} 
+> [!Warning]
 > Only create the configuration file if at least one configuration change is required. Otherwise, leave it as is.  
 
 ### **Example Configuration:**  
@@ -147,7 +147,8 @@ Geomys loads its configuration from `~/.geomys/geomys.conf`.
 ```  
 
 - If no configuration file is provided, the software will use the default configurations.  
-> [!NOTE] Configuration options specified during software execution **take precedence** over those in the configuration file.  
+> [!NOTE] 
+> Configuration options specified during software execution **take precedence** over those in the configuration file.  
 
 ---
 
