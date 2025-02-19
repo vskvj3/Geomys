@@ -22,7 +22,7 @@ tasks:
   build-server:
     desc: "Build the server binary"
     cmds:
-      - "go build $GO_FLAGS -o $BUILD_DIR/$APP_NAME-server.exe $SERVER_DIR"
+      - "go build $GO_FLAGS -o $BUILD_DIR/$APP_NAME.exe $SERVER_DIR"
 
   build-client:
     desc: "Build the client binary"
