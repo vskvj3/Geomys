@@ -13,6 +13,7 @@ Geomys is a **distributed in-memory key-value store** that supports **leader-fol
   - [Build Using Task](#build-using-task)  
   - [Manual Build](#manual-build)  
   - [Run in Docker](#run-in-docker)  
+- [Usage](docs/Usage.md)
 - [Configuration](#configuration)  
 - [Testing](#testing)  
 - [Directory Structure](#directory-structure)  
