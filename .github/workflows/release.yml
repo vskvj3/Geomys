@@ -27,11 +27,19 @@ jobs:
 
       - name: Build for Linux (amd64)
         run: |
-          GOOS=linux GOARCH=amd64 go build -o geomys-${{ env.VERSION }}-linux-amd64 ./cmd
+          GOOS=linux GOARCH=amd64 go build -o geomys-${{ env.VERSION }}-linux-amd64 ./cmd/server/main.go
 
       - name: Build for Windows (amd64)
         run: |
-          GOOS=windows GOARCH=amd64 go build -o geomys-${{ env.VERSION }}-windows-amd64.exe ./cmd
+          GOOS=windows GOARCH=amd64 go build -o geomys-${{ env.VERSION }}-windows-amd64.exe ./cmd/server/main.go
+
+      - name: Build for Linux (client) (amd64)
+        run: |
+          GOOS=linux GOARCH=amd64 go build -o geomys-client-${{ env.VERSION }}-linux-amd64 ./cmd/client/main.go
+
+      - name: Build for Windows (Client) (amd64)
+        run: |
+          GOOS=windows GOARCH=amd64 go build -o geomys-client-${{ env.VERSION }}-windows-amd64.exe ./cmd/client/main.go
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -43,3 +51,5 @@ jobs:
           files: |
             geomys-${{ env.VERSION }}-linux-amd64
             geomys-${{ env.VERSION }}-windows-amd64.exe
+            geomys-client-${{ env.VERSION }}-linux-amd64
+            geomys-client-${{ env.VERSION }}-windows-amd64.exe
