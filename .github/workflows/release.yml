@@ -40,15 +40,31 @@ jobs:
         run: |
           GOOS=linux GOARCH=amd64 go build -o geomys-client-${{ env.VERSION }}-linux-amd64 ./cmd/client/main.go
 
-      - name: Build for Windows (Client) (amd64)
+      - name: Build for Windows (client) (amd64)
         run: |
           GOOS=windows GOARCH=amd64 go build -o geomys-client-${{ env.VERSION }}-windows-amd64.exe ./cmd/client/main.go
+
+      - name: Check if release notes exist
+        id: check_file
+        run: |
+          if [ -f docs/release.md ]; then
+            echo "RELEASE_NOTES=docs/release.md" >> $GITHUB_ENV
+          else
+            echo "RELEASE_NOTES=default-release-notes.md" >> $GITHUB_ENV
+          fi
+
+      - name: Create default release notes if missing
+        run: |
+          if [ ! -f docs/release.md ]; then
+            echo "This is an automated release. No detailed notes are available." > default-release-notes.md
+          fi
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ env.VERSION }}
-          name: Geomys ${{ env.VERSION }}
+          tag_name: v${{ env.VERSION }}
+          name: Geomys v${{ env.VERSION }}
+          body_path: ${{ env.RELEASE_NOTES }}
           draft: false
           prerelease: true
           files: |
