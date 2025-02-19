@@ -15,7 +15,6 @@ Geomys is a **distributed in-memory key-value store** that supports **leader-fol
   - [Run in Docker](#run-in-docker)  
 - [Usage](docs/Usage.md)
 - [Configuration](#configuration)  
-- [Testing](#testing)  
 - [Directory Structure](#directory-structure)  
 - [TODOs & Future Work](#todos--future-work)  
 
@@ -128,32 +127,27 @@ go build -o build/geomys-client.exe ./cmd/client
   task docker-clean
   ```  
 
----
+--- 
 
 ## **Configuration**  
 
-Geomys loads configuration from `~/.geomys/config.yaml`. Default values can be found in `internal/utils/config.go`.  
+Geomys loads its configuration from `~/.geomys/geomys.conf`.  
 
-Example configuration:  
-```yaml
-node_id: 1
-cluster_mode: true
-log_level: "info"
+> [!Warning} 
+> Only create the configuration file if at least one configuration change is required. Otherwise, leave it as is.  
+
+### **Example Configuration:**  
+```json
+{
+  "node_id": 1,
+  "cluster_mode": false,
+  "default_expiry": 60000,
+  "persistence": "writethroughdisk"
+}
 ```  
 
----
-
-## **Testing**  
-
-Run unit and integration tests:  
-```sh
-task test
-```  
-
-Run specific test files:  
-```sh
-go test ./tests/integration/integration_test.go
-```  
+- If no configuration file is provided, the software will use the default configurations.  
+> [!NOTE] Configuration options specified during software execution **take precedence** over those in the configuration file.  
 
 ---
 
