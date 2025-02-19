@@ -7,7 +7,8 @@ geomys --node_id=1 --port=1000
 
 ### **Cluster Mode**  
 #### **Bootstrapping the Leader Node**  
-- **Note:** The internal port (used by client software) must be provided. If omitted, the node defaults to port `6973`.  
+> [!NOTE]
+> The internal port (used by client software) must be provided. If omitted, the node defaults to port `6973`.  
 ```sh
 geomys --node_id=1 --port=1000 --bootstrap
 ```
@@ -248,7 +249,8 @@ Basic configurations can be set in a configuration file.
 ---
 
 ### **FLUSHDB**  
-⚠ **Warning:** `FLUSHDB` **clears the entire database**, including persisted disk data.  
+> [!WARNING]
+> `FLUSHDB` **clears the entire database**, including persisted disk data.  
 ```json
 {
   "Command": "FLUSHDB",
