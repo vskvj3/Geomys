@@ -157,16 +157,16 @@ Geomys loads its configuration from `~/.geomys/geomys.conf`.
 ```
 geomys/
 │── cmd/                  # CLI and server entry points
-│   ├── client/           # Client implementation
-│   ├── server/           # Server implementation
+│   ├── client/           # Client implementation (Client entry point)
+│   ├── server/           # Server implementation (Entry point)
 │
 ├── docs/                 # Documentation files
 │
 ├── internal/             # Core logic of the project
-│   ├── cluster/          # Leader election and cluster management
-│   ├── core/             # Key-value store logic
-│   ├── network/          # gRPC server
-│   ├── persistence/      # Write-ahead logging and storage
+│   ├── cluster/          # Leader election, cluster management as replication logic
+│   ├── core/             # Key-value store logic (uncluding database)
+│   ├── network/          # Core Network Logic
+│   ├── persistence/      # Write-ahead logging and persistent storage
 │   ├── utils/            # Helper utilities
 │
 ├── tests/                # Unit and integration tests
