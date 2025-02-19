@@ -208,13 +208,9 @@ A leader is responsible for following tasks:
 - **Read Requests**: Can be handled by any node (leader or follower).
 
 ### Node Failures
-- If a **replica fails**, it recovers by fetching the latest state from the leader.
+- If a **replica fails**, it can recover by fetching the latest state from the leader(by restarting and rejoining the cluster).
 - Heartbeat mechanism detects node failures (every 5 seconds).
 - If a node is unresponsive for **15 seconds**, it is marked as failed.
-#### Leader Failover
-- If leader fails, nodes will detect the leader failure by delay in heartbeat.
-- Leader election begins and a follower will become leader.
-- 
 
 ### Cluster Management
 - **Bootstrap Mode**: Start as a leader if no existing cluster if bootstrap flag is given when starting the server.
