@@ -1,6 +1,11 @@
 > [!NOTE]
 > This document contains design decisions and implementation considerations.
-> This is not a usage document or instruction manual. If someone just wants to know the features, there is no need to waste time with this!
+> This is not a usage document or instruction manual. 
+
+## Core Architecture of the system:
+
+![Architecture](../assets/architecture.jpg)
+- Configuration services and logging services are not included in this diagram.
 
 ## Commands
 ### ECHO
