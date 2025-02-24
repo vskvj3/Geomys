@@ -191,7 +191,9 @@ It will be stored in binary format as:
 ## High Availability Architecture
 The system follows a **Leader-Follower** architecture.
 
-#### Leader
+![Cluster](../assets/cluster.jpg)
+
+### Leader
 A leader is responsible for following tasks:
 - Writes: 
     - Leader is the only allowed node in the cluster to write.
@@ -251,6 +253,8 @@ The follower will connect to leader on port 7767(grpc port), if leader is found 
 - If a node receives same node id from all the votes, it will be selected as the new leader.
 - If the nodes cannot agree on the leader, node list is updated, and a new election begins.
 - Upon electing a leader, a heartbeat is send to the new leader as a indication of whether the leader is alive, if the leader is alive, nodes will connect to the new leader, if the leader  is not alive, the node is removed from the nodes list and a new leader election begins again.
+
+![Election](../assets/election.jpg)
 
 ---
 
