@@ -252,6 +252,18 @@ The follower will connect to leader on port 7767(grpc port), if leader is found 
 - If the nodes cannot agree on the leader, node list is updated, and a new election begins.
 - Upon electing a leader, a heartbeat is send to the new leader as a indication of whether the leader is alive, if the leader is alive, nodes will connect to the new leader, if the leader  is not alive, the node is removed from the nodes list and a new leader election begins again.
 
+---
+
+## Replication  
+- Only the leader node is allowed to perform write operations.  
+- When the leader node receives a write request from a client, it executes the operation and replicates it across all follower nodes.  
+- If a follower node receives a write request (e.g., `SET`, `INCR`, `PUSH`, `RPOP`), it forwards the request to the leader. The leader processes the operation and sends the response back to the follower that forwarded the request.  
+- After a successful write operation, the leader sends a replication request to all followers, containing the command to be replicated.  
+- Each follower processes the replication request, applies the operation to its own database, and sends a success response back to the leader.  
+
+![Replication](../assets/replication.jpg)
+--- 
+
 ## Upcoming Considerations
 ### Blocking & Non-Blocking Commands
 In Redis, some commands block execution until a condition is met.
