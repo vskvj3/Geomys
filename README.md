@@ -6,6 +6,7 @@ Geomys is a **distributed in-memory key-value store** that supports **leader-fol
 ## **Table of Contents**  
 - [Features](#features)  
 - [Architecture Overview](#architecture-overview)  
+- [Detailed Design](docs/Design.md)
 - [Building and Installation](#building-and-installation)  
   - [Prerequisites](#prerequisites)  
   - [Clone the Repository](#clone-the-repository)  
